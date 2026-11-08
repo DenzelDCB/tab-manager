@@ -21117,11 +21117,15 @@ chrome.tabs.onUpdated.addListener((tabId, change, tab) => {
 chrome.tabs.onRemoved.addListener((tabId) => {
   void removeTab(tabId);
 });
-chrome.alarms.onAlarm.addListener((alarm) => {
-  if (alarm.name === ALARM_NAME) {
-    void processCommands();
-  }
-});
+if (chrome.alarms) {
+  chrome.alarms.onAlarm.addListener((alarm) => {
+    if (alarm.name === "sync-commands") {
+      initializeUser();
+    }
+  });
+} else {
+  console.error("Chrome Alarms API unavailable.");
+}
 chrome.runtime.onMessage.addListener(
   (message, sender, sendResponse) => {
     if (message?.type === "TAB_MANAGER_AUTH_CHANGED") {
