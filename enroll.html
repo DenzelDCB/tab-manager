@@ -1,0 +1,166 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport"
+        content="width=device-width, initial-scale=1.0">
+
+  <title>Enroll Device | Tab Manager</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      min-height: 100vh;
+      margin: 0;
+      padding: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #10131a;
+      color: #f1f5f9;
+      font-family: Arial, sans-serif;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 400px;
+      padding: 28px;
+      border: 1px solid #303746;
+      border-radius: 12px;
+      background: #191e28;
+    }
+
+    h1 {
+      font-size: 23px;
+      margin-top: 0;
+    }
+
+    p {
+      color: #94a3b8;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    label {
+      display: block;
+      margin: 18px 0 7px;
+      font-size: 13px;
+    }
+
+    input {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid #303746;
+      border-radius: 7px;
+      background: #10131a;
+      color: white;
+      outline: none;
+    }
+
+    input:focus {
+      border-color: #818cf8;
+    }
+
+    button {
+      width: 100%;
+      margin-top: 18px;
+      padding: 12px;
+      border: 0;
+      border-radius: 7px;
+      background: #6366f1;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    #status {
+      min-height: 18px;
+      margin-top: 15px;
+      font-size: 13px;
+      overflow-wrap: anywhere;
+    }
+
+    .success {
+      color: #4ade80;
+    }
+
+    .error {
+      color: #f87171;
+    }
+
+    .footer {
+      margin-top: 22px;
+      text-align: center;
+      font-size: 11px;
+      color: #64748b;
+    }
+  </style>
+</head>
+
+<body>
+
+  <main class="container">
+
+    <h1>Enroll this device</h1>
+
+    <p>
+      Connect this browser to an existing
+      Tab Manager administrator account.
+      No Supabase login is required.
+    </p>
+
+    <form id="enroll-form">
+
+      <label for="device-name">
+        Device name
+      </label>
+
+      <input
+        id="device-name"
+        type="text"
+        placeholder="e.g. My Laptop"
+        maxlength="80"
+        required
+      >
+
+      <label for="enrollment-code">
+        Enrollment code
+      </label>
+
+      <input
+        id="enrollment-code"
+        type="text"
+        placeholder="Enter your 16-character code"
+        minlength="16"
+        maxlength="16"
+        autocomplete="off"
+        required
+      >
+
+      <button id="enroll-button" type="submit">
+        Connect Device
+      </button>
+
+    </form>
+
+    <p id="status"></p>
+
+    <div class="footer">
+      Tab Manager Device Enrollment
+    </div>
+
+  </main>
+
+  <script type="module" src="dist/enroll.js"></script>
+
+</body>
+</html>
