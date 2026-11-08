@@ -1,345 +1,324 @@
 
 import { supabase } from "./lib/supabase.js";
 
-const DEVICE_KEY = "tab_manager_device_id";
-const ALARM_NAME = "tab-manager-command-poll";
+const SYNC_ALARM = "tab-manager-sync";
 
-let deviceId;
-let userId = null;
-let commandChannel = null;
-let busy = false;
-
-console.log("Chrome:", typeof chrome);
-console.log("Runtime:", typeof chrome?.runtime);
-console.log("Alarms:", typeof chrome?.alarms);
-console.log("Manifest:", chrome?.runtime?.getManifest());
-
-function isValidUrl(url) {
-  try {
-    return ["http:", "https:"].includes(
-      new URL(url).protocol
-    );
-  } catch {
-    return false;
-  }
-}
+let running = false;
 
 async function getDeviceId() {
-  if (deviceId) return deviceId;
+  const stored = await chrome.storage.local.get(
+    "tab_manager_device_id"
+  );
 
-  const stored = await chrome.storage.local.get(DEVICE_KEY);
-  deviceId = stored[DEVICE_KEY];
-
-  if (!deviceId) {
-    deviceId = crypto.randomUUID();
-    await chrome.storage.local.set({
-      [DEVICE_KEY]: deviceId
-    });
+  if (stored.tab_manager_device_id) {
+    return stored.tab_manager_device_id;
   }
 
-  return deviceId;
+  const id = crypto.randomUUID();
+
+  await chrome.storage.local.set({
+    tab_manager_device_id: id
+  });
+
+  return id;
 }
 
-async function getUser() {
-  const { data, error } = await supabase.auth.getUser();
-
-  if (error) throw error;
-
-  return data.user;
-}
-
-// Synchronize an individual tab.
-async function syncTab(tab) {
-  if (!userId || !tab || !Number.isInteger(tab.id)) return;
-
-  const url = tab.url || tab.pendingUrl || "";
-
-  if (!isValidUrl(url)) return;
-
-  const row = {
-    user_id: userId,
-    device_id: await getDeviceId(),
-    browser_tab_id: tab.id,
-    window_id: tab.windowId,
-    url,
-    title: tab.title || "",
-    updated_at: new Date().toISOString()
-  };
-
-  const { error } = await supabase
-    .from("tabs")
-    .upsert(row, {
-      onConflict: "user_id,device_id,browser_tab_id"
-    });
-
-  if (error) {
-    console.error("Tab sync failed:", error.message);
-  }
-}
-
-// Remove a closed tab from Supabase.
-async function removeTab(tabId) {
-  if (!userId) return;
-
-  const { error } = await supabase
-    .from("tabs")
-    .delete()
-    .eq("user_id", userId)
-    .eq("device_id", await getDeviceId())
-    .eq("browser_tab_id", tabId);
-
-  if (error) {
-    console.error("Tab removal failed:", error.message);
-  }
-}
-
-// Synchronize existing tabs after startup.
-async function syncAllTabs() {
-  if (!userId) return;
-
+async function getCurrentTabs() {
   const tabs = await chrome.tabs.query({});
 
-  await Promise.all(tabs.map(syncTab));
+  return tabs
+    .filter(tab =>
+      tab.id !== undefined &&
+      tab.url &&
+      /^https?:\/\//i.test(tab.url)
+    )
+    .map(tab => ({
+      browser_tab_id: tab.id,
+      window_id: tab.windowId,
+      url: tab.url,
+      title: tab.title || ""
+    }));
 }
 
-// Mark a command as executed.
-async function acknowledge(command) {
+async function callDeviceFunction(name, body = {}) {
+  const stored = await chrome.storage.local.get(
+    "tab_manager_device_token"
+  );
+
+  const token = stored.tab_manager_device_token;
+
+  if (!token) {
+    throw new Error("Device token is missing.");
+  }
+
+  const { data, error } = await supabase.functions.invoke(
+    name,
+    {
+      body,
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    }
+  );
+
+  if (error) {
+    throw error;
+  }
+
+  return data;
+}
+
+async function syncEnrolledDevice() {
+  const tabs = await getCurrentTabs();
+
+  const result = await callDeviceFunction(
+    "sync-tabs",
+    { tabs }
+  );
+
+  console.log("Device tabs synced:", result.synced);
+}
+
+async function syncAdminDevice(user) {
+  const deviceId = await getDeviceId();
+  const tabs = await getCurrentTabs();
+
+  // Replace this device's previous tab snapshot.
+  const { error: deleteError } = await supabase
+    .from("tabs")
+    .delete()
+    .eq("user_id", user.id)
+    .eq("device_id", deviceId);
+
+  if (deleteError) {
+    throw deleteError;
+  }
+
+  if (tabs.length > 0) {
+    const rows = tabs.map(tab => ({
+      ...tab,
+      user_id: user.id,
+      device_id: deviceId,
+      updated_at: new Date().toISOString()
+    }));
+
+    const { error } = await supabase
+      .from("tabs")
+      .insert(rows);
+
+    if (error) {
+      throw error;
+    }
+  }
+
+  console.log("Administrator tabs synced:", tabs.length);
+}
+
+async function getDeviceCommands() {
+  const result = await callDeviceFunction(
+    "fetch-commands"
+  );
+
+  return result.commands || [];
+}
+
+async function getAdminCommands(user) {
+  const deviceId = await getDeviceId();
+
+  const { data, error } = await supabase
+    .from("commands")
+    .select("id, browser_tab_id, action")
+    .eq("user_id", user.id)
+    .eq("device_id", deviceId)
+    .eq("executed", false)
+    .order("created_at", { ascending: true })
+    .limit(100);
+
+  if (error) {
+    throw error;
+  }
+
+  return data || [];
+}
+
+async function acknowledgeDeviceCommand(commandId) {
+  await callDeviceFunction("ack-command", {
+    command_id: commandId
+  });
+}
+
+async function acknowledgeAdminCommand(commandId, user) {
+  const deviceId = await getDeviceId();
+
   const { error } = await supabase
     .from("commands")
     .update({ executed: true })
-    .eq("id", command.id)
-    .eq("user_id", userId)
+    .eq("id", commandId)
+    .eq("user_id", user.id)
     .eq("device_id", deviceId);
 
   if (error) {
-    console.error("Acknowledgement failed:", error.message);
+    throw error;
   }
 }
 
-// Execute remote commands.
-async function executeCommand(command) {
-  if (!userId || !command) return;
+async function executeCommands(commands, acknowledge) {
+  for (const command of commands) {
+    try {
+      const tabId = Number(command.browser_tab_id);
 
-  if (command.user_id !== userId) return;
-  if (command.device_id !== deviceId) return;
-  if (command.executed) return;
+      if (!Number.isInteger(tabId)) {
+        continue;
+      }
 
-  if (!["close", "block"].includes(command.action)) return;
+      if (command.action === "close") {
+        try {
+          await chrome.tabs.remove(tabId);
+        } catch {
+          // The tab may already be closed.
+        }
+      }
 
-  try {
-    const tab = await chrome.tabs.get(
-      command.browser_tab_id
-    );
+      else if (command.action === "block") {
+        try {
+          await chrome.tabs.update(tabId, {
+            url: chrome.runtime.getURL(
+              "blocked.html"
+            )
+          });
+        } catch {
+          // The tab may no longer exist.
+        }
+      }
 
-    if (command.action === "close") {
-      await chrome.tabs.remove(tab.id);
+      else {
+        console.warn(
+          "Unknown command:",
+          command.action
+        );
+
+        continue;
+      }
+
+      await acknowledge(command.id);
+
+      console.log(
+        "Executed command:",
+        command.action,
+        tabId
+      );
+
+    } catch (error) {
+      console.error(
+        "Command execution failed:",
+        error
+      );
     }
-
-    if (command.action === "block") {
-      const blockedUrl = new URL(
-        chrome.runtime.getURL("blocked.html")
-      );
-
-      blockedUrl.searchParams.set(
-        "url",
-        tab.url || tab.pendingUrl || ""
-      );
-
-      blockedUrl.searchParams.set(
-        "title",
-        tab.title || ""
-      );
-
-      await chrome.tabs.update(tab.id, {
-        url: blockedUrl.toString()
-      });
-    }
-
-    await acknowledge(command);
-
-  } catch (error) {
-    console.error("Command execution failed:", error);
   }
 }
 
-// Find pending commands for this browser.
-async function processCommands() {
-  if (!userId || busy) return;
+async function runCycle() {
+  if (running) return;
 
-  busy = true;
+  running = true;
 
   try {
-    const id = await getDeviceId();
+    const stored = await chrome.storage.local.get([
+      "tab_manager_device_token"
+    ]);
 
-    const { data, error } = await supabase
-      .from("commands")
-      .select("*")
-      .eq("user_id", userId)
-      .eq("device_id", id)
-      .eq("executed", false)
-      .order("created_at", { ascending: true })
-      .limit(100);
+    // Enrolled browser: no user login needed.
+    if (stored.tab_manager_device_token) {
+      await syncEnrolledDevice();
+
+      const commands = await getDeviceCommands();
+
+      await executeCommands(
+        commands,
+        acknowledgeDeviceCommand
+      );
+
+      return;
+    }
+
+    // Administrator browser: use Supabase login.
+    const { data, error } = await supabase.auth.getSession();
 
     if (error) throw error;
 
-    for (const command of data || []) {
-      await executeCommand(command);
+    const user = data.session?.user;
+
+    if (!user) {
+      console.log("Waiting for administrator login.");
+      return;
     }
+
+    await syncAdminDevice(user);
+
+    const commands = await getAdminCommands(user);
+
+    await executeCommands(
+      commands,
+      commandId =>
+        acknowledgeAdminCommand(commandId, user)
+    );
 
   } catch (error) {
-    console.error("Command polling failed:", error);
-
+    console.error("Tab Manager sync failed:", error);
   } finally {
-    busy = false;
+    running = false;
   }
 }
 
-// Subscribe to new commands.
-async function connectRealtime() {
-  if (!userId) return;
-
-  if (commandChannel) {
-    await supabase.removeChannel(commandChannel);
-  }
-
-  commandChannel = supabase
-    .channel(`commands-${userId}-${deviceId}`)
-    .on(
-      "postgres_changes",
-      {
-        event: "INSERT",
-        schema: "public",
-        table: "commands",
-        filter: `user_id=eq.${userId}`
-      },
-      (payload) => {
-        void executeCommand(payload.new);
-      }
-    )
-    .subscribe((status) => {
-      console.log("Realtime:", status);
-
-      if (status === "SUBSCRIBED") {
-        void processCommands();
-      }
-    });
-}
-
-// Initialize authenticated browser session.
-async function initializeUser() {
-  const user = await getUser();
-
-  if (!user) {
-    userId = null;
-
-    if (commandChannel) {
-      await supabase.removeChannel(commandChannel);
-      commandChannel = null;
-    }
-
-    return;
-  }
-
-  userId = user.id;
-
-  await getDeviceId();
-  await syncAllTabs();
-  await connectRealtime();
-  await processCommands();
-}
-
-// Chrome tab events.
-chrome.tabs.onCreated.addListener((tab) => {
-  void syncTab(tab);
-});
-
-chrome.tabs.onUpdated.addListener((tabId, change, tab) => {
-  if (
-    change.url ||
-    change.title ||
-    change.status === "complete"
-  ) {
-    void syncTab(tab);
-  }
-});
-
-chrome.tabs.onRemoved.addListener((tabId) => {
-  void removeTab(tabId);
-});
-
-if (chrome.alarms) {
-  chrome.alarms.onAlarm.addListener((alarm) => {
-    if (alarm.name === "sync-commands") {
-      initializeUser();
+// Run periodically.
+if (chrome.alarms?.onAlarm) {
+  chrome.alarms.onAlarm.addListener(alarm => {
+    if (alarm.name === SYNC_ALARM) {
+      runCycle();
     }
   });
-} else {
-  console.error("Chrome Alarms API unavailable.");
+
+  chrome.alarms.create(SYNC_ALARM, {
+    periodInMinutes: 0.5
+  });
 }
 
-// Messages from popup.js.
-chrome.runtime.onMessage.addListener(
-  (message, sender, sendResponse) => {
+// Refresh after tab changes.
+chrome.tabs.onCreated.addListener(() => runCycle());
 
-    if (message?.type === "TAB_MANAGER_AUTH_CHANGED") {
-      initializeUser()
-        .then(() => sendResponse({ ok: true }))
-        .catch((error) => sendResponse({
-          ok: false,
-          error: error.message
-        }));
+chrome.tabs.onRemoved.addListener(() => runCycle());
 
-      return true;
+chrome.tabs.onUpdated.addListener(
+  (tabId, changeInfo) => {
+    if (
+      changeInfo.status === "complete" ||
+      changeInfo.url ||
+      changeInfo.title
+    ) {
+      runCycle();
     }
-
-    if (message?.type === "TAB_MANAGER_REFRESH_COMMANDS") {
-      processCommands().then(() => {
-        sendResponse({ ok: true });
-      });
-
-      return true;
-    }
-
-    return false;
   }
 );
 
-// Authentication changes.
-supabase.auth.onAuthStateChange((event, session) => {
-  if (
-    event === "SIGNED_IN" ||
-    event === "TOKEN_REFRESHED"
-  ) {
-    userId = session?.user?.id || null;
-    void initializeUser();
-
-  } else if (event === "SIGNED_OUT") {
-    userId = null;
-
-    if (commandChannel) {
-      void supabase.removeChannel(commandChannel);
-      commandChannel = null;
-    }
-  }
-});
-
-// Service worker startup.
-async function initialize() {
-  await getDeviceId();
-
-  chrome.alarms.create(ALARM_NAME, {
-    periodInMinutes: 1
-  });
-
-  await initializeUser();
-}
-
+// Handle extension startup.
 chrome.runtime.onStartup.addListener(() => {
-  void initialize();
+  runCycle();
 });
 
 chrome.runtime.onInstalled.addListener(() => {
-  void initialize();
+  runCycle();
 });
 
-void initialize();
+// Handle messages from the popup and enrollment page.
+chrome.runtime.onMessage.addListener(message => {
+  if (
+    message.type === "TAB_MANAGER_AUTH_CHANGED" ||
+    message.type === "TAB_MANAGER_REFRESH_COMMANDS" ||
+    message.type === "TAB_MANAGER_DEVICE_ENROLLED"
+  ) {
+    runCycle();
+  }
+});
+
+// Initial synchronization.
+runCycle();
