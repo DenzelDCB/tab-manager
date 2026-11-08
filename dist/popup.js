@@ -345,24 +345,24 @@ var FunctionsClient = class {
           throw new FunctionsHttpError(response);
         }
         let responseType = ((_a = response.headers.get("Content-Type")) !== null && _a !== void 0 ? _a : "text/plain").split(";")[0].trim().toLowerCase();
-        let data2;
+        let data;
         if (responseType === "application/json") {
-          data2 = yield response.json();
+          data = yield response.json();
         } else if (responseType === "application/octet-stream" || responseType === "application/pdf") {
-          data2 = yield response.blob();
+          data = yield response.blob();
         } else if (responseType === "text/event-stream") {
-          data2 = response;
+          data = response;
         } else if (responseType === "multipart/form-data") {
-          data2 = yield response.formData();
+          data = yield response.formData();
         } else {
-          data2 = yield response.text();
+          data = yield response.text();
         }
-        return { data: data2, error: null, response };
-      } catch (error2) {
+        return { data, error: null, response };
+      } catch (error) {
         return {
           data: null,
-          error: error2,
-          response: error2 instanceof FunctionsHttpError || error2 instanceof FunctionsRelayError ? error2.context : void 0
+          error,
+          response: error instanceof FunctionsHttpError || error instanceof FunctionsRelayError ? error.context : void 0
         };
       } finally {
         if (timeoutId) {
@@ -761,8 +761,8 @@ ${cause.stack}`;
   */
   async processResponse(res) {
     var _this2 = this;
-    let error2 = null;
-    let data2 = null;
+    let error = null;
+    let data = null;
     let count = null;
     let status = res.status;
     let statusText = res.statusText;
@@ -772,13 +772,13 @@ ${cause.stack}`;
         var _this$headers$get;
         const body = await res.text();
         if (body === "") {
-        } else if (_this2.headers.get("Accept") === "text/csv") data2 = body;
-        else if (_this2.headers.get("Accept") && ((_this$headers$get = _this2.headers.get("Accept")) === null || _this$headers$get === void 0 ? void 0 : _this$headers$get.includes("application/vnd.pgrst.plan+text"))) data2 = body;
+        } else if (_this2.headers.get("Accept") === "text/csv") data = body;
+        else if (_this2.headers.get("Accept") && ((_this$headers$get = _this2.headers.get("Accept")) === null || _this$headers$get === void 0 ? void 0 : _this$headers$get.includes("application/vnd.pgrst.plan+text"))) data = body;
         else try {
-          data2 = JSON.parse(body);
+          data = JSON.parse(body);
         } catch (_unused) {
-          error2 = { message: body };
-          data2 = null;
+          error = { message: body };
+          data = null;
           if (_this2.shouldThrowOnError) throw new PostgrestError({
             message: body,
             details: "",
@@ -790,30 +790,30 @@ ${cause.stack}`;
       const countHeader = (_this$headers$get2 = _this2.headers.get("Prefer")) === null || _this$headers$get2 === void 0 ? void 0 : _this$headers$get2.match(/count=(exact|planned|estimated)/);
       const contentRange = (_res$headers$get = res.headers.get("content-range")) === null || _res$headers$get === void 0 ? void 0 : _res$headers$get.split("/");
       if (countHeader && contentRange && contentRange.length > 1) count = parseInt(contentRange[1]);
-      if (_this2.isMaybeSingle && Array.isArray(data2)) if (data2.length > 1) {
-        error2 = {
+      if (_this2.isMaybeSingle && Array.isArray(data)) if (data.length > 1) {
+        error = {
           code: "PGRST116",
-          details: `Results contain ${data2.length} rows, application/vnd.pgrst.object+json requires 1 row`,
+          details: `Results contain ${data.length} rows, application/vnd.pgrst.object+json requires 1 row`,
           hint: null,
           message: "JSON object requested, multiple (or no) rows returned"
         };
-        data2 = null;
+        data = null;
         count = null;
         status = 406;
         statusText = "Not Acceptable";
         if (_this2.shouldThrowOnError) {
           var _error$hint;
-          throw new PostgrestError(_objectSpread2(_objectSpread2({}, error2), {}, { hint: (_error$hint = error2.hint) !== null && _error$hint !== void 0 ? _error$hint : "" }));
+          throw new PostgrestError(_objectSpread2(_objectSpread2({}, error), {}, { hint: (_error$hint = error.hint) !== null && _error$hint !== void 0 ? _error$hint : "" }));
         }
-      } else if (data2.length === 1) data2 = data2[0];
-      else data2 = null;
+      } else if (data.length === 1) data = data[0];
+      else data = null;
     } else {
       const body = await res.text();
       try {
-        error2 = JSON.parse(body);
-        if (Array.isArray(error2) && res.status === 404) {
-          data2 = [];
-          error2 = null;
+        error = JSON.parse(body);
+        if (Array.isArray(error) && res.status === 404) {
+          data = [];
+          error = null;
           status = 200;
           statusText = "OK";
         }
@@ -821,14 +821,14 @@ ${cause.stack}`;
         if (res.status === 404 && body === "") {
           status = 204;
           statusText = "No Content";
-        } else error2 = { message: body };
+        } else error = { message: body };
       }
-      if (error2 && _this2.shouldThrowOnError) throw new PostgrestError(error2);
+      if (error && _this2.shouldThrowOnError) throw new PostgrestError(error);
     }
     return {
-      success: error2 === null,
-      error: error2,
-      data: data2,
+      success: error === null,
+      error,
+      data,
       count,
       status,
       statusText
@@ -4558,15 +4558,15 @@ var Serializer = class _Serializer {
     offset = offset + metadataSize;
     const payload = buffer.slice(offset, buffer.byteLength);
     const parsedPayload = payloadEncoding === this.JSON_ENCODING ? JSON.parse(decoder.decode(payload)) : payload;
-    const data2 = {
+    const data = {
       type: this.BROADCAST_EVENT,
       event: userEvent,
       payload: parsedPayload
     };
     if (metadataSize > 0) {
-      data2["meta"] = JSON.parse(metadata);
+      data["meta"] = JSON.parse(metadata);
     }
-    return { join_ref: null, ref: null, topic, event: this.BROADCAST_EVENT, payload: data2 };
+    return { join_ref: null, ref: null, topic, event: this.BROADCAST_EVENT, payload: data };
   }
   _isArrayBuffer(buffer) {
     var _a;
@@ -5290,7 +5290,7 @@ var Ajax = class {
       const _timeoutId = setTimeout(() => controller.abort(), timeout);
       options.signal = controller.signal;
     }
-    global2.fetch(endPoint, options).then((response) => response.text()).then((data2) => this.parseJSON(data2)).then((data2) => callback && callback(data2)).catch((err) => {
+    global2.fetch(endPoint, options).then((response) => response.text()).then((data) => this.parseJSON(data)).then((data) => callback && callback(data)).catch((err) => {
       if (err.name === "AbortError" && ontimeout) {
         ontimeout();
       } else {
@@ -5855,8 +5855,8 @@ var serializer_default2 = {
     offset = offset + topicSize;
     let event = decoder.decode(buffer.slice(offset, offset + eventSize));
     offset = offset + eventSize;
-    let data2 = buffer.slice(offset, buffer.byteLength);
-    return { join_ref: joinRef, ref: null, topic, event, payload: data2 };
+    let data = buffer.slice(offset, buffer.byteLength);
+    return { join_ref: joinRef, ref: null, topic, event, payload: data };
   },
   /** @private */
   decodeReply(buffer, view, decoder) {
@@ -5873,8 +5873,8 @@ var serializer_default2 = {
     offset = offset + topicSize;
     let event = decoder.decode(buffer.slice(offset, offset + eventSize));
     offset = offset + eventSize;
-    let data2 = buffer.slice(offset, buffer.byteLength);
-    let payload = { status: event, response: data2 };
+    let data = buffer.slice(offset, buffer.byteLength);
+    let payload = { status: event, response: data };
     return { join_ref: joinRef, ref, topic, event: CHANNEL_EVENTS2.reply, payload };
   },
   /** @private */
@@ -5886,8 +5886,8 @@ var serializer_default2 = {
     offset = offset + topicSize;
     let event = decoder.decode(buffer.slice(offset, offset + eventSize));
     offset = offset + eventSize;
-    let data2 = buffer.slice(offset, buffer.byteLength);
-    return { join_ref: null, ref: null, topic, event, payload: data2 };
+    let data = buffer.slice(offset, buffer.byteLength);
+    return { join_ref: null, ref: null, topic, event, payload: data };
   }
 };
 var Socket = class {
@@ -5981,8 +5981,8 @@ var Socket = class {
     };
     this.logger = opts.logger || null;
     if (!this.logger && opts.debug) {
-      this.logger = (kind, msg, data2) => {
-        console.log(`${kind}: ${msg}`, data2);
+      this.logger = (kind, msg, data) => {
+        console.log(`${kind}: ${msg}`, data);
       };
     }
     this.longpollerTimeout = opts.longpollerTimeout || 2e4;
@@ -6101,8 +6101,8 @@ var Socket = class {
    * @param {string} msg
    * @param {Object} data
    */
-  log(kind, msg, data2) {
-    this.logger && this.logger(kind, msg, data2);
+  log(kind, msg, data) {
+    this.logger && this.logger(kind, msg, data);
   }
   /**
    * Returns true if a logger has been set on this socket.
@@ -6211,7 +6211,7 @@ var Socket = class {
     this.conn.binaryType = this.binaryType;
     this.conn.timeout = this.longpollerTimeout;
     this.conn.onopen = () => this.onConnOpen();
-    this.conn.onerror = (error2) => this.onConnError(error2);
+    this.conn.onerror = (error) => this.onConnError(error);
     this.conn.onmessage = (event) => this.onConnMessage(event);
     this.conn.onclose = (event) => this.onConnClose(event);
   }
@@ -6374,13 +6374,13 @@ var Socket = class {
    * @private
    * @param {Event} error
    */
-  onConnError(error2) {
-    if (this.hasLogger()) this.log("transport", "error", error2);
+  onConnError(error) {
+    if (this.hasLogger()) this.log("transport", "error", error);
     let transportBefore = this.transport;
     let establishedBefore = this.establishedConnections;
-    this.triggerStateCallbacks("error", error2, transportBefore, establishedBefore);
+    this.triggerStateCallbacks("error", error, transportBefore, establishedBefore);
     if (transportBefore === this.transport || establishedBefore > 0) {
-      this.triggerChanError(error2);
+      this.triggerChanError(error);
     }
   }
   /**
@@ -6451,15 +6451,15 @@ var Socket = class {
   /**
    * @param {Message<Record<string, any>>} data
    */
-  push(data2) {
+  push(data) {
     if (this.hasLogger()) {
-      let { topic, event, payload, ref, join_ref } = data2;
+      let { topic, event, payload, ref, join_ref } = data;
       this.log("push", `${topic} ${event} (${join_ref}, ${ref})`, payload);
     }
     if (this.isConnected()) {
-      this.encode(data2, (result) => this.conn.send(result));
+      this.encode(data, (result) => this.conn.send(result));
     } else {
-      this.sendBuffer.push(() => this.encode(data2, (result) => this.conn.send(result)));
+      this.sendBuffer.push(() => this.encode(data, (result) => this.conn.send(result)));
     }
   }
   /**
@@ -6756,7 +6756,7 @@ var ChannelAdapter = class {
     let push;
     try {
       push = this.channel.push(event, payload, timeout);
-    } catch (error2) {
+    } catch (error) {
       throw new Error(`tried to push '${event}' to '${this.channel.topic}' before joining. Use channel.subscribe() before pushing events`);
     }
     if (this.channel.pushBuffer.length > MAX_PUSH_BUFFER_SIZE) {
@@ -7065,10 +7065,10 @@ var RealtimeChannel = class _RealtimeChannel {
           return;
         }
         this._updatePostgresBindings(postgres_changes2, callback);
-      }).receive("error", (error2) => {
+      }).receive("error", (error) => {
         this.state = CHANNEL_STATES.errored;
-        const message = Object.values(error2).join(", ") || "error";
-        callback === null || callback === void 0 ? void 0 : callback(REALTIME_SUBSCRIBE_STATES.CHANNEL_ERROR, new Error(message, { cause: error2 }));
+        const message = Object.values(error).join(", ") || "error";
+        callback === null || callback === void 0 ? void 0 : callback(REALTIME_SUBSCRIBE_STATES.CHANNEL_ERROR, new Error(message, { cause: error }));
       }).receive("timeout", () => {
         callback === null || callback === void 0 ? void 0 : callback(REALTIME_SUBSCRIBE_STATES.TIMED_OUT);
       });
@@ -7477,8 +7477,8 @@ var RealtimeChannel = class _RealtimeChannel {
         const response = await this._fetchWithTimeout(this.broadcastEndpointURL, options, (_a = opts.timeout) !== null && _a !== void 0 ? _a : this.timeout);
         await ((_b = response.body) === null || _b === void 0 ? void 0 : _b.cancel());
         return response.ok ? "ok" : "error";
-      } catch (error2) {
-        if (error2 instanceof Error && error2.name === "AbortError") {
+      } catch (error) {
+        if (error instanceof Error && error.name === "AbortError") {
           return "timed out";
         } else {
           return "error";
@@ -7612,8 +7612,8 @@ var RealtimeChannel = class _RealtimeChannel {
   }
   /** @internal */
   _notThisChannelEvent(event, ref) {
-    const { close, error: error2, leave, join } = CHANNEL_EVENTS;
-    const events = [close, error2, leave, join];
+    const { close, error, leave, join } = CHANNEL_EVENTS;
+    const events = [close, error, leave, join];
     return ref && events.includes(event) && ref !== this.joinPush.ref;
   }
   /** @internal */
@@ -7745,11 +7745,11 @@ var SocketAdapter = class {
       }, code, reason);
     });
   }
-  push(data2) {
-    this.socket.push(data2);
+  push(data) {
+    this.socket.push(data);
   }
-  log(kind, msg, data2) {
-    this.socket.log(kind, msg, data2);
+  log(kind, msg, data) {
+    this.socket.log(kind, msg, data);
   }
   hasLogger() {
     return this.socket.hasLogger();
@@ -7981,8 +7981,8 @@ var RealtimeClient = class {
     this._setupConnectionHandlers();
     try {
       this.socketAdapter.connect();
-    } catch (error2) {
-      const errorMessage = error2.message;
+    } catch (error) {
+      const errorMessage = error.message;
       throw new Error(`WebSocket not available: ${errorMessage}`);
     }
     this._handleNodeJsRaceCondition();
@@ -8057,8 +8057,8 @@ var RealtimeClient = class {
    *
    * @category Realtime
    */
-  log(kind, msg, data2) {
-    this.socketAdapter.log(kind, msg, data2);
+  log(kind, msg, data) {
+    this.socketAdapter.log(kind, msg, data);
   }
   /**
    * Returns true if a custom `logger` has been configured on this client.
@@ -8128,8 +8128,8 @@ var RealtimeClient = class {
    *
    * @category Realtime
    */
-  push(data2) {
-    this.socketAdapter.push(data2);
+  push(data) {
+    this.socketAdapter.push(data);
   }
   /**
    * Sets the JWT access token used for channel subscription authorization and Realtime RLS.
@@ -8359,8 +8359,8 @@ var RealtimeClient = class {
     }
     const objectUrl = this._workerObjectUrl(this.workerUrl);
     this.workerRef = new Worker(objectUrl);
-    this.workerRef.onerror = (error2) => {
-      this.log("worker", "worker error", error2.message);
+    this.workerRef.onerror = (error) => {
+      this.log("worker", "worker error", error.message);
       this._terminateWorker();
       this.disconnect();
     };
@@ -8540,9 +8540,9 @@ function createFetchClient(options) {
       });
       const text = await res.text();
       const isJson = (res.headers.get("content-type") || "").includes("application/json");
-      const data2 = isJson && text ? JSON.parse(text) : text;
+      const data = isJson && text ? JSON.parse(text) : text;
       if (!res.ok) {
-        const errBody = isJson ? data2 : void 0;
+        const errBody = isJson ? data : void 0;
         const errorDetail = errBody?.error;
         throw new IcebergError(
           errorDetail?.message ?? `Request failed with status ${res.status}`,
@@ -8554,7 +8554,7 @@ function createFetchClient(options) {
           }
         );
       }
-      return { status: res.status, headers: res.headers, data: data2 };
+      return { status: res.status, headers: res.headers, data };
     }
   };
 }
@@ -8609,21 +8609,21 @@ var NamespaceOperations = class {
         path: `${this.prefix}/namespaces/${namespaceToPath(id.namespace)}`
       });
       return true;
-    } catch (error2) {
-      if (error2 instanceof IcebergError && error2.status === 404) {
+    } catch (error) {
+      if (error instanceof IcebergError && error.status === 404) {
         return false;
       }
-      throw error2;
+      throw error;
     }
   }
   async createNamespaceIfNotExists(id, metadata) {
     try {
       return await this.createNamespace(id, metadata);
-    } catch (error2) {
-      if (error2 instanceof IcebergError && error2.status === 409) {
+    } catch (error) {
+      if (error instanceof IcebergError && error.status === 409) {
         return;
       }
-      throw error2;
+      throw error;
     }
   }
 };
@@ -8698,21 +8698,21 @@ var TableOperations = class {
         headers
       });
       return true;
-    } catch (error2) {
-      if (error2 instanceof IcebergError && error2.status === 404) {
+    } catch (error) {
+      if (error instanceof IcebergError && error.status === 404) {
         return false;
       }
-      throw error2;
+      throw error;
     }
   }
   async createTableIfNotExists(namespace, request) {
     try {
       return await this.createTable(namespace, request);
-    } catch (error2) {
-      if (error2 instanceof IcebergError && error2.status === 409) {
+    } catch (error) {
+      if (error instanceof IcebergError && error.status === 409) {
         return await this.loadTable({ namespace: namespace.namespace, name: request.name });
       }
-      throw error2;
+      throw error;
     }
   }
 };
@@ -9064,8 +9064,8 @@ var StorageError = class extends Error {
     };
   }
 };
-function isStorageError(error2) {
-  return typeof error2 === "object" && error2 !== null && "__isStorageError" in error2;
+function isStorageError(error) {
+  return typeof error === "object" && error !== null && "__isStorageError" in error;
 }
 var StorageApiError = class extends StorageError {
   constructor(message, status, statusCode, namespace = "storage", code) {
@@ -9139,9 +9139,9 @@ var _getErrorMessage = (err) => {
   }
   return JSON.stringify(err);
 };
-var handleError = async (error2, reject, options, namespace) => {
-  if (error2 !== null && typeof error2 === "object" && "json" in error2 && typeof error2.json === "function") {
-    const responseError = error2;
+var handleError = async (error, reject, options, namespace) => {
+  if (error !== null && typeof error === "object" && "json" in error && typeof error.json === "function") {
+    const responseError = error;
     let status = parseInt(String(responseError.status), 10);
     if (!Number.isFinite(status)) status = 500;
     responseError.json().then((err) => {
@@ -9151,7 +9151,7 @@ var handleError = async (error2, reject, options, namespace) => {
       const statusCode = status + "";
       reject(new StorageApiError(responseError.statusText || `HTTP ${status} error`, status, statusCode, namespace));
     });
-  } else reject(new StorageUnknownError(_getErrorMessage(error2), error2, namespace));
+  } else reject(new StorageUnknownError(_getErrorMessage(error), error, namespace));
 };
 var _getRequestParams = (method, options, parameters, body) => {
   const params = {
@@ -9181,7 +9181,7 @@ async function _handleRequest(fetcher, method, url, options, parameters, body, n
         if (!contentType || !contentType.includes("application/json")) return {};
       }
       return result.json();
-    }).then((data2) => resolve(data2)).catch((error2) => handleError(error2, reject, options, namespace));
+    }).then((data) => resolve(data)).catch((error) => handleError(error, reject, options, namespace));
   });
 }
 function createFetchApi(namespace = "storage") {
@@ -9275,13 +9275,13 @@ var BaseApiClient = class {
         data: await operation(),
         error: null
       };
-    } catch (error2) {
-      if (_this.shouldThrowOnError) throw error2;
-      if (isStorageError(error2)) return {
+    } catch (error) {
+      if (_this.shouldThrowOnError) throw error;
+      if (isStorageError(error)) return {
         data: null,
-        error: error2
+        error
       };
-      throw error2;
+      throw error;
     }
   }
 };
@@ -9314,13 +9314,13 @@ var StreamDownloadBuilder = class {
         data: (await _this.downloadFn()).body,
         error: null
       };
-    } catch (error2) {
-      if (_this.shouldThrowOnError) throw error2;
-      if (isStorageError(error2)) return {
+    } catch (error) {
+      if (_this.shouldThrowOnError) throw error;
+      if (isStorageError(error)) return {
         data: null,
-        error: error2
+        error
       };
-      throw error2;
+      throw error;
     }
   }
 };
@@ -9356,13 +9356,13 @@ var BlobDownloadBuilder = class {
         data: await (await _this.downloadFn()).blob(),
         error: null
       };
-    } catch (error2) {
-      if (_this.shouldThrowOnError) throw error2;
-      if (isStorageError(error2)) return {
+    } catch (error) {
+      if (_this.shouldThrowOnError) throw error;
+      if (isStorageError(error)) return {
         data: null,
-        error: error2
+        error
       };
-      throw error2;
+      throw error;
     }
   }
 };
@@ -9414,11 +9414,11 @@ var StorageFileApi = class extends BaseApiClient {
       if (fileOptions === null || fileOptions === void 0 ? void 0 : fileOptions.headers) for (const [key, value] of Object.entries(fileOptions.headers)) headers = setHeader(headers, key, value);
       const cleanPath = _this._removeEmptyFolders(path);
       const _path = _this._getFinalPath(cleanPath);
-      const data2 = await (method == "PUT" ? put : post)(_this.fetch, `${_this.url}/object/${_path}`, body, _objectSpread22({ headers }, (options === null || options === void 0 ? void 0 : options.duplex) ? { duplex: options.duplex } : {}));
+      const data = await (method == "PUT" ? put : post)(_this.fetch, `${_this.url}/object/${_path}`, body, _objectSpread22({ headers }, (options === null || options === void 0 ? void 0 : options.duplex) ? { duplex: options.duplex } : {}));
       return {
         path: cleanPath,
-        id: data2.Id,
-        fullPath: data2.Key
+        id: data.Id,
+        fullPath: data.Key
       };
     });
   }
@@ -9600,8 +9600,8 @@ var StorageFileApi = class extends BaseApiClient {
       let _path = _this4._getFinalPath(path);
       const headers = _objectSpread22({}, _this4.headers);
       if (options === null || options === void 0 ? void 0 : options.upsert) headers["x-upsert"] = "true";
-      const data2 = await post(_this4.fetch, `${_this4.url}/object/upload/sign/${_path}`, {}, { headers });
-      const url = new URL(_this4.url + data2.url);
+      const data = await post(_this4.fetch, `${_this4.url}/object/upload/sign/${_path}`, {}, { headers });
+      const url = new URL(_this4.url + data.url);
       const token = url.searchParams.get("token");
       if (!token) throw new StorageError("No token returned by API");
       return {
@@ -9845,12 +9845,12 @@ var StorageFileApi = class extends BaseApiClient {
     return _this8.handleOperation(async () => {
       let _path = _this8._getFinalPath(path);
       const hasTransform = typeof (options === null || options === void 0 ? void 0 : options.transform) === "object" && options.transform !== null && Object.keys(options.transform).length > 0;
-      let data2 = await post(_this8.fetch, `${_this8.url}/object/sign/${_path}`, _objectSpread22(_objectSpread22({ expiresIn }, hasTransform ? { transform: options.transform } : {}), (options === null || options === void 0 ? void 0 : options.versionId) != null ? { versionId: options.versionId } : {}), { headers: _this8.headers });
+      let data = await post(_this8.fetch, `${_this8.url}/object/sign/${_path}`, _objectSpread22(_objectSpread22({ expiresIn }, hasTransform ? { transform: options.transform } : {}), (options === null || options === void 0 ? void 0 : options.versionId) != null ? { versionId: options.versionId } : {}), { headers: _this8.headers });
       const query = new URLSearchParams();
       if (options === null || options === void 0 ? void 0 : options.download) query.set("download", options.download === true ? "" : options.download);
       if ((options === null || options === void 0 ? void 0 : options.cacheNonce) != null) query.set("cacheNonce", String(options.cacheNonce));
       const queryString = query.toString();
-      return { signedUrl: encodeURI(`${_this8.url}${data2.signedURL}${queryString ? `&${queryString}` : ""}`) };
+      return { signedUrl: encodeURI(`${_this8.url}${data.signedURL}${queryString ? `&${queryString}` : ""}`) };
     });
   }
   /**
@@ -9902,7 +9902,7 @@ var StorageFileApi = class extends BaseApiClient {
   async createSignedUrls(paths, expiresIn, options) {
     var _this9 = this;
     return _this9.handleOperation(async () => {
-      const data2 = await post(_this9.fetch, `${_this9.url}/object/sign/${_this9.bucketId}`, {
+      const data = await post(_this9.fetch, `${_this9.url}/object/sign/${_this9.bucketId}`, {
         expiresIn,
         paths
       }, { headers: _this9.headers });
@@ -9910,7 +9910,7 @@ var StorageFileApi = class extends BaseApiClient {
       if (options === null || options === void 0 ? void 0 : options.download) query.set("download", options.download === true ? "" : options.download);
       if ((options === null || options === void 0 ? void 0 : options.cacheNonce) != null) query.set("cacheNonce", String(options.cacheNonce));
       const queryString = query.toString();
-      return data2.map((datum) => _objectSpread22(_objectSpread22({}, datum), {}, { signedUrl: datum.signedURL ? encodeURI(`${_this9.url}${datum.signedURL}${queryString ? `&${queryString}` : ""}`) : null }));
+      return data.map((datum) => _objectSpread22(_objectSpread22({}, datum), {}, { signedUrl: datum.signedURL ? encodeURI(`${_this9.url}${datum.signedURL}${queryString ? `&${queryString}` : ""}`) : null }));
     });
   }
   /**
@@ -10052,16 +10052,16 @@ var StorageFileApi = class extends BaseApiClient {
   * ```
   */
   async exists(path) {
-    const { error: error2 } = await this.info(path);
-    if (!error2) return {
+    const { error } = await this.info(path);
+    if (!error) return {
       data: true,
       error: null
     };
-    if (error2 instanceof StorageApiError && (error2.code === "NoSuchKey" || error2.status === 404 && error2.code === void 0)) return {
+    if (error instanceof StorageApiError && (error.code === "NoSuchKey" || error.status === 404 && error.code === void 0)) return {
       data: false,
-      error: error2
+      error
     };
-    throw error2;
+    throw error;
   }
   /**
   * A simple convenience function to get the URL for an asset in a public bucket. If you do not want to use this function, you can construct the public URL by concatenating the bucket URL with the path to the asset.
@@ -10407,9 +10407,9 @@ var StorageFileApi = class extends BaseApiClient {
   encodeMetadata(metadata) {
     return JSON.stringify(metadata);
   }
-  toBase64(data2) {
-    if (typeof Buffer !== "undefined") return Buffer.from(data2).toString("base64");
-    return btoa(data2);
+  toBase64(data) {
+    if (typeof Buffer !== "undefined") return Buffer.from(data).toString("base64");
+    return btoa(data);
   }
   _getFinalPath(path) {
     return `${this.bucketId}/${path.replace(/^\/+/, "")}`;
@@ -11261,11 +11261,11 @@ var StorageAnalyticsClient = class extends BaseApiClient {
             data: await value.apply(target, args),
             error: null
           };
-        } catch (error2) {
-          if (shouldThrowOnError) throw error2;
+        } catch (error) {
+          if (shouldThrowOnError) throw error;
           return {
             data: null,
-            error: error2
+            error
           };
         }
       };
@@ -12025,8 +12025,8 @@ var AuthError = class extends Error {
     };
   }
 };
-function isAuthError(error2) {
-  return typeof error2 === "object" && error2 !== null && "__isAuthError" in error2;
+function isAuthError(error) {
+  return typeof error === "object" && error !== null && "__isAuthError" in error;
 }
 var AuthApiError = class extends AuthError {
   constructor(message, status, code) {
@@ -12036,8 +12036,8 @@ var AuthApiError = class extends AuthError {
     this.code = code;
   }
 };
-function isAuthApiError(error2) {
-  return isAuthError(error2) && error2.name === "AuthApiError";
+function isAuthApiError(error) {
+  return isAuthError(error) && error.name === "AuthApiError";
 }
 var AuthUnknownError = class extends AuthError {
   constructor(message, originalError) {
@@ -12058,8 +12058,8 @@ var AuthSessionMissingError = class extends CustomAuthError {
     super("Auth session missing!", "AuthSessionMissingError", 400, void 0);
   }
 };
-function isAuthSessionMissingError(error2) {
-  return isAuthError(error2) && error2.name === "AuthSessionMissingError";
+function isAuthSessionMissingError(error) {
+  return isAuthError(error) && error.name === "AuthSessionMissingError";
 }
 var AuthInvalidTokenResponseError = class extends CustomAuthError {
   constructor() {
@@ -12081,8 +12081,8 @@ var AuthImplicitGrantRedirectError = class extends CustomAuthError {
     return Object.assign(Object.assign({}, super.toJSON()), { details: this.details });
   }
 };
-function isAuthImplicitGrantRedirectError(error2) {
-  return isAuthError(error2) && error2.name === "AuthImplicitGrantRedirectError";
+function isAuthImplicitGrantRedirectError(error) {
+  return isAuthError(error) && error.name === "AuthImplicitGrantRedirectError";
 }
 var AuthPKCEGrantCodeExchangeError = class extends CustomAuthError {
   constructor(message, details = null) {
@@ -12104,16 +12104,16 @@ var AuthRetryableFetchError = class extends CustomAuthError {
     super(message, "AuthRetryableFetchError", status, void 0);
   }
 };
-function isAuthRetryableFetchError(error2) {
-  return isAuthError(error2) && error2.name === "AuthRetryableFetchError";
+function isAuthRetryableFetchError(error) {
+  return isAuthError(error) && error.name === "AuthRetryableFetchError";
 }
 var AuthRefreshDiscardedError = class extends CustomAuthError {
   constructor(message = "Refresh result discarded: session state changed mid-flight (e.g., concurrent signOut)") {
     super(message, "AuthRefreshDiscardedError", 409, void 0);
   }
 };
-function isAuthRefreshDiscardedError(error2) {
-  return isAuthError(error2) && error2.name === "AuthRefreshDiscardedError";
+function isAuthRefreshDiscardedError(error) {
+  return isAuthError(error) && error.name === "AuthRefreshDiscardedError";
 }
 var AuthWeakPasswordError = class extends CustomAuthError {
   constructor(message, status, reasons) {
@@ -12357,8 +12357,8 @@ var resolveFetch3 = (customFetch) => {
 var looksLikeFetchResponse = (maybeResponse) => {
   return typeof maybeResponse === "object" && maybeResponse !== null && "status" in maybeResponse && "ok" in maybeResponse && "json" in maybeResponse && typeof maybeResponse.json === "function";
 };
-var setItemAsync = async (storage, key, data2) => {
-  await storage.setItem(key, JSON.stringify(data2));
+var setItemAsync = async (storage, key, data) => {
+  await storage.setItem(key, JSON.stringify(data));
 };
 var getItemAsync = async (storage, key) => {
   const value = await storage.getItem(key);
@@ -12395,7 +12395,7 @@ function decodeJWT(token) {
       throw new AuthInvalidJwtError("JWT not in base64url format");
     }
   }
-  const data2 = {
+  const data = {
     // using base64url lib
     header: JSON.parse(stringFromBase64URL(parts[0])),
     payload: JSON.parse(stringFromBase64URL(parts[1])),
@@ -12405,7 +12405,7 @@ function decodeJWT(token) {
       payload: parts[1]
     }
   };
-  return data2;
+  return data;
 }
 async function sleep2(time) {
   return await new Promise((accept) => {
@@ -12698,40 +12698,40 @@ var NETWORK_ERROR_CODES = [
   529,
   530
 ];
-async function handleError2(error2) {
+async function handleError2(error) {
   var _a;
-  if (!looksLikeFetchResponse(error2)) {
-    throw new AuthRetryableFetchError(_getErrorMessage2(error2), 0);
+  if (!looksLikeFetchResponse(error)) {
+    throw new AuthRetryableFetchError(_getErrorMessage2(error), 0);
   }
-  let data2;
+  let data;
   try {
-    data2 = await error2.json();
+    data = await error.json();
   } catch (e) {
-    if (NETWORK_ERROR_CODES.includes(error2.status)) {
-      throw new AuthRetryableFetchError(error2.statusText || `HTTP ${error2.status}`, error2.status);
+    if (NETWORK_ERROR_CODES.includes(error.status)) {
+      throw new AuthRetryableFetchError(error.statusText || `HTTP ${error.status}`, error.status);
     }
     throw new AuthUnknownError(_getErrorMessage2(e), e);
   }
-  if (NETWORK_ERROR_CODES.includes(error2.status)) {
-    throw new AuthRetryableFetchError(_getErrorMessage2(data2), error2.status);
+  if (NETWORK_ERROR_CODES.includes(error.status)) {
+    throw new AuthRetryableFetchError(_getErrorMessage2(data), error.status);
   }
   let errorCode = void 0;
-  const responseAPIVersion = parseResponseAPIVersion(error2);
-  if (responseAPIVersion && responseAPIVersion.getTime() >= API_VERSIONS["2024-01-01"].timestamp && typeof data2 === "object" && data2 && typeof data2.code === "string") {
-    errorCode = data2.code;
-  } else if (typeof data2 === "object" && data2 && typeof data2.error_code === "string") {
-    errorCode = data2.error_code;
+  const responseAPIVersion = parseResponseAPIVersion(error);
+  if (responseAPIVersion && responseAPIVersion.getTime() >= API_VERSIONS["2024-01-01"].timestamp && typeof data === "object" && data && typeof data.code === "string") {
+    errorCode = data.code;
+  } else if (typeof data === "object" && data && typeof data.error_code === "string") {
+    errorCode = data.error_code;
   }
   if (!errorCode) {
-    if (typeof data2 === "object" && data2 && typeof data2.weak_password === "object" && data2.weak_password && Array.isArray(data2.weak_password.reasons) && data2.weak_password.reasons.length && data2.weak_password.reasons.reduce((a, i) => a && typeof i === "string", true)) {
-      throw new AuthWeakPasswordError(_getErrorMessage2(data2), error2.status, data2.weak_password.reasons);
+    if (typeof data === "object" && data && typeof data.weak_password === "object" && data.weak_password && Array.isArray(data.weak_password.reasons) && data.weak_password.reasons.length && data.weak_password.reasons.reduce((a, i) => a && typeof i === "string", true)) {
+      throw new AuthWeakPasswordError(_getErrorMessage2(data), error.status, data.weak_password.reasons);
     }
   } else if (errorCode === "weak_password") {
-    throw new AuthWeakPasswordError(_getErrorMessage2(data2), error2.status, ((_a = data2.weak_password) === null || _a === void 0 ? void 0 : _a.reasons) || []);
+    throw new AuthWeakPasswordError(_getErrorMessage2(data), error.status, ((_a = data.weak_password) === null || _a === void 0 ? void 0 : _a.reasons) || []);
   } else if (errorCode === "session_not_found") {
     throw new AuthSessionMissingError();
   }
-  throw new AuthApiError(_getErrorMessage2(data2), error2.status || 500, errorCode);
+  throw new AuthApiError(_getErrorMessage2(data), error.status || 500, errorCode);
 }
 var _getRequestParams2 = (method, options, parameters, body) => {
   const params = { method, headers: (options === null || options === void 0 ? void 0 : options.headers) || {} };
@@ -12756,11 +12756,11 @@ async function _request(fetcher, method, url, options) {
     qs["redirect_to"] = options.redirectTo;
   }
   const queryString = Object.keys(qs).length ? "?" + new URLSearchParams(qs).toString() : "";
-  const data2 = await _handleRequest2(fetcher, method, url + queryString, {
+  const data = await _handleRequest2(fetcher, method, url + queryString, {
     headers,
     noResolveJson: options === null || options === void 0 ? void 0 : options.noResolveJson
   }, {}, options === null || options === void 0 ? void 0 : options.body);
-  return (options === null || options === void 0 ? void 0 : options.xform) ? options === null || options === void 0 ? void 0 : options.xform(data2) : { data: Object.assign({}, data2), error: null };
+  return (options === null || options === void 0 ? void 0 : options.xform) ? options === null || options === void 0 ? void 0 : options.xform(data) : { data: Object.assign({}, data), error: null };
 }
 async function _handleRequest2(fetcher, method, url, options, parameters, body) {
   const requestParams = _getRequestParams2(method, options, parameters, body);
@@ -12782,35 +12782,35 @@ async function _handleRequest2(fetcher, method, url, options, parameters, body) 
     await handleError2(e);
   }
 }
-function _sessionResponse(data2) {
+function _sessionResponse(data) {
   var _a;
   let session = null;
-  if (hasSession(data2)) {
-    session = Object.assign({}, data2);
-    if (!data2.expires_at) {
-      session.expires_at = expiresAt(data2.expires_in);
+  if (hasSession(data)) {
+    session = Object.assign({}, data);
+    if (!data.expires_at) {
+      session.expires_at = expiresAt(data.expires_in);
     }
   }
-  const user = (_a = data2.user) !== null && _a !== void 0 ? _a : typeof (data2 === null || data2 === void 0 ? void 0 : data2.id) === "string" ? data2 : null;
+  const user = (_a = data.user) !== null && _a !== void 0 ? _a : typeof (data === null || data === void 0 ? void 0 : data.id) === "string" ? data : null;
   return { data: { session, user }, error: null };
 }
-function _sessionResponsePassword(data2) {
-  const response = _sessionResponse(data2);
-  if (!response.error && data2.weak_password && typeof data2.weak_password === "object" && Array.isArray(data2.weak_password.reasons) && data2.weak_password.reasons.length && data2.weak_password.message && typeof data2.weak_password.message === "string" && data2.weak_password.reasons.reduce((a, i) => a && typeof i === "string", true)) {
-    response.data.weak_password = data2.weak_password;
+function _sessionResponsePassword(data) {
+  const response = _sessionResponse(data);
+  if (!response.error && data.weak_password && typeof data.weak_password === "object" && Array.isArray(data.weak_password.reasons) && data.weak_password.reasons.length && data.weak_password.message && typeof data.weak_password.message === "string" && data.weak_password.reasons.reduce((a, i) => a && typeof i === "string", true)) {
+    response.data.weak_password = data.weak_password;
   }
   return response;
 }
-function _userResponse(data2) {
+function _userResponse(data) {
   var _a;
-  const user = (_a = data2.user) !== null && _a !== void 0 ? _a : data2;
+  const user = (_a = data.user) !== null && _a !== void 0 ? _a : data;
   return { data: { user }, error: null };
 }
-function _ssoResponse(data2) {
-  return { data: data2, error: null };
+function _ssoResponse(data) {
+  return { data, error: null };
 }
-function _generateLinkResponse(data2) {
-  const { action_link, email_otp, hashed_token, redirect_to, verification_type } = data2, rest = __rest(data2, ["action_link", "email_otp", "hashed_token", "redirect_to", "verification_type"]);
+function _generateLinkResponse(data) {
+  const { action_link, email_otp, hashed_token, redirect_to, verification_type } = data, rest = __rest(data, ["action_link", "email_otp", "hashed_token", "redirect_to", "verification_type"]);
   const properties = {
     action_link,
     email_otp,
@@ -12827,11 +12827,11 @@ function _generateLinkResponse(data2) {
     error: null
   };
 }
-function _noResolveJsonResponse(data2) {
-  return data2;
+function _noResolveJsonResponse(data) {
+  return data;
 }
-function hasSession(data2) {
-  return !!data2.access_token && !!data2.refresh_token && !!data2.expires_in;
+function hasSession(data) {
+  return !!data.access_token && !!data.refresh_token && !!data.expires_in;
 }
 
 // node_modules/@supabase/auth-js/dist/module/lib/types.js
@@ -12908,11 +12908,11 @@ var GoTrueAdminApi = class {
         noResolveJson: true
       });
       return { data: null, error: null };
-    } catch (error2) {
-      if (isAuthError(error2)) {
-        return { data: null, error: error2 };
+    } catch (error) {
+      if (isAuthError(error)) {
+        return { data: null, error };
       }
-      throw error2;
+      throw error;
     }
   }
   /**
@@ -12987,11 +12987,11 @@ var GoTrueAdminApi = class {
         redirectTo: options.redirectTo,
         xform: _userResponse
       });
-    } catch (error2) {
-      if (isAuthError(error2)) {
-        return { data: { user: null }, error: error2 };
+    } catch (error) {
+      if (isAuthError(error)) {
+        return { data: { user: null }, error };
       }
-      throw error2;
+      throw error;
     }
   }
   /**
@@ -13122,17 +13122,17 @@ var GoTrueAdminApi = class {
         xform: _generateLinkResponse,
         redirectTo: options === null || options === void 0 ? void 0 : options.redirectTo
       });
-    } catch (error2) {
-      if (isAuthError(error2)) {
+    } catch (error) {
+      if (isAuthError(error)) {
         return {
           data: {
             properties: null,
             user: null
           },
-          error: error2
+          error
         };
       }
-      throw error2;
+      throw error;
     }
   }
   // User Admin API
@@ -13223,11 +13223,11 @@ var GoTrueAdminApi = class {
         headers: this.headers,
         xform: _userResponse
       });
-    } catch (error2) {
-      if (isAuthError(error2)) {
-        return { data: { user: null }, error: error2 };
+    } catch (error) {
+      if (isAuthError(error)) {
+        return { data: { user: null }, error };
       }
-      throw error2;
+      throw error;
     }
   }
   /**
@@ -13282,11 +13282,11 @@ var GoTrueAdminApi = class {
         pagination.total = parseInt(total);
       }
       return { data: Object.assign(Object.assign({}, users), pagination), error: null };
-    } catch (error2) {
-      if (isAuthError(error2)) {
-        return { data: { users: [] }, error: error2 };
+    } catch (error) {
+      if (isAuthError(error)) {
+        return { data: { users: [] }, error };
       }
-      throw error2;
+      throw error;
     }
   }
   /**
@@ -13358,11 +13358,11 @@ var GoTrueAdminApi = class {
         headers: this.headers,
         xform: _userResponse
       });
-    } catch (error2) {
-      if (isAuthError(error2)) {
-        return { data: { user: null }, error: error2 };
+    } catch (error) {
+      if (isAuthError(error)) {
+        return { data: { user: null }, error };
       }
-      throw error2;
+      throw error;
     }
   }
   /**
@@ -13517,11 +13517,11 @@ var GoTrueAdminApi = class {
         headers: this.headers,
         xform: _userResponse
       });
-    } catch (error2) {
-      if (isAuthError(error2)) {
-        return { data: { user: null }, error: error2 };
+    } catch (error) {
+      if (isAuthError(error)) {
+        return { data: { user: null }, error };
       }
-      throw error2;
+      throw error;
     }
   }
   /**
@@ -13568,9 +13568,9 @@ var GoTrueAdminApi = class {
   async deleteUser(id, shouldSoftDelete = false) {
     validateUUID(id);
     try {
-      const { data: data2, error: error2 } = await this.getUserById(id);
-      if (error2) {
-        return { data: { user: null }, error: error2 };
+      const { data, error } = await this.getUserById(id);
+      if (error) {
+        return { data: { user: null }, error };
       }
       await _request(this.fetch, "DELETE", `${this.url}/admin/users/${id}`, {
         headers: this.headers,
@@ -13579,44 +13579,44 @@ var GoTrueAdminApi = class {
         },
         noResolveJson: true
       });
-      return { data: data2, error: null };
-    } catch (error2) {
-      if (isAuthError(error2)) {
-        return { data: { user: null }, error: error2 };
+      return { data, error: null };
+    } catch (error) {
+      if (isAuthError(error)) {
+        return { data: { user: null }, error };
       }
-      throw error2;
+      throw error;
     }
   }
   async _listFactors(params) {
     validateUUID(params.userId);
     try {
-      const { data: data2, error: error2 } = await _request(this.fetch, "GET", `${this.url}/admin/users/${params.userId}/factors`, {
+      const { data, error } = await _request(this.fetch, "GET", `${this.url}/admin/users/${params.userId}/factors`, {
         headers: this.headers,
         xform: (factors) => {
           return { data: { factors }, error: null };
         }
       });
-      return { data: data2, error: error2 };
-    } catch (error2) {
-      if (isAuthError(error2)) {
-        return { data: null, error: error2 };
+      return { data, error };
+    } catch (error) {
+      if (isAuthError(error)) {
+        return { data: null, error };
       }
-      throw error2;
+      throw error;
     }
   }
   async _deleteFactor(params) {
     validateUUID(params.userId);
     validateUUID(params.id);
     try {
-      const data2 = await _request(this.fetch, "DELETE", `${this.url}/admin/users/${params.userId}/factors/${params.id}`, {
+      const data = await _request(this.fetch, "DELETE", `${this.url}/admin/users/${params.userId}/factors/${params.id}`, {
         headers: this.headers
       });
-      return { data: data2, error: null };
-    } catch (error2) {
-      if (isAuthError(error2)) {
-        return { data: null, error: error2 };
+      return { data, error: null };
+    } catch (error) {
+      if (isAuthError(error)) {
+        return { data: null, error };
       }
-      throw error2;
+      throw error;
     }
   }
   /**
@@ -13652,11 +13652,11 @@ var GoTrueAdminApi = class {
         pagination.total = parseInt(total);
       }
       return { data: Object.assign(Object.assign({}, clients), pagination), error: null };
-    } catch (error2) {
-      if (isAuthError(error2)) {
-        return { data: { clients: [] }, error: error2 };
+    } catch (error) {
+      if (isAuthError(error)) {
+        return { data: { clients: [] }, error };
       }
-      throw error2;
+      throw error;
     }
   }
   /**
@@ -13674,11 +13674,11 @@ var GoTrueAdminApi = class {
           return { data: client, error: null };
         }
       });
-    } catch (error2) {
-      if (isAuthError(error2)) {
-        return { data: null, error: error2 };
+    } catch (error) {
+      if (isAuthError(error)) {
+        return { data: null, error };
       }
-      throw error2;
+      throw error;
     }
   }
   /**
@@ -13695,11 +13695,11 @@ var GoTrueAdminApi = class {
           return { data: client, error: null };
         }
       });
-    } catch (error2) {
-      if (isAuthError(error2)) {
-        return { data: null, error: error2 };
+    } catch (error) {
+      if (isAuthError(error)) {
+        return { data: null, error };
       }
-      throw error2;
+      throw error;
     }
   }
   /**
@@ -13717,11 +13717,11 @@ var GoTrueAdminApi = class {
           return { data: client, error: null };
         }
       });
-    } catch (error2) {
-      if (isAuthError(error2)) {
-        return { data: null, error: error2 };
+    } catch (error) {
+      if (isAuthError(error)) {
+        return { data: null, error };
       }
-      throw error2;
+      throw error;
     }
   }
   /**
@@ -13737,11 +13737,11 @@ var GoTrueAdminApi = class {
         noResolveJson: true
       });
       return { data: null, error: null };
-    } catch (error2) {
-      if (isAuthError(error2)) {
-        return { data: null, error: error2 };
+    } catch (error) {
+      if (isAuthError(error)) {
+        return { data: null, error };
       }
-      throw error2;
+      throw error;
     }
   }
   /**
@@ -13758,11 +13758,11 @@ var GoTrueAdminApi = class {
           return { data: client, error: null };
         }
       });
-    } catch (error2) {
-      if (isAuthError(error2)) {
-        return { data: null, error: error2 };
+    } catch (error) {
+      if (isAuthError(error)) {
+        return { data: null, error };
       }
-      throw error2;
+      throw error;
     }
   }
   /**
@@ -13779,16 +13779,16 @@ var GoTrueAdminApi = class {
       return await _request(this.fetch, "GET", `${this.url}/admin/custom-providers`, {
         headers: this.headers,
         query,
-        xform: (data2) => {
+        xform: (data) => {
           var _a;
-          return { data: { providers: (_a = data2 === null || data2 === void 0 ? void 0 : data2.providers) !== null && _a !== void 0 ? _a : [] }, error: null };
+          return { data: { providers: (_a = data === null || data === void 0 ? void 0 : data.providers) !== null && _a !== void 0 ? _a : [] }, error: null };
         }
       });
-    } catch (error2) {
-      if (isAuthError(error2)) {
-        return { data: { providers: [] }, error: error2 };
+    } catch (error) {
+      if (isAuthError(error)) {
+        return { data: { providers: [] }, error };
       }
-      throw error2;
+      throw error;
     }
   }
   /**
@@ -13811,11 +13811,11 @@ var GoTrueAdminApi = class {
           return { data: provider, error: null };
         }
       });
-    } catch (error2) {
-      if (isAuthError(error2)) {
-        return { data: null, error: error2 };
+    } catch (error) {
+      if (isAuthError(error)) {
+        return { data: null, error };
       }
-      throw error2;
+      throw error;
     }
   }
   /**
@@ -13831,11 +13831,11 @@ var GoTrueAdminApi = class {
           return { data: provider, error: null };
         }
       });
-    } catch (error2) {
-      if (isAuthError(error2)) {
-        return { data: null, error: error2 };
+    } catch (error) {
+      if (isAuthError(error)) {
+        return { data: null, error };
       }
-      throw error2;
+      throw error;
     }
   }
   /**
@@ -13857,11 +13857,11 @@ var GoTrueAdminApi = class {
           return { data: provider, error: null };
         }
       });
-    } catch (error2) {
-      if (isAuthError(error2)) {
-        return { data: null, error: error2 };
+    } catch (error) {
+      if (isAuthError(error)) {
+        return { data: null, error };
       }
-      throw error2;
+      throw error;
     }
   }
   /**
@@ -13876,11 +13876,11 @@ var GoTrueAdminApi = class {
         noResolveJson: true
       });
       return { data: null, error: null };
-    } catch (error2) {
-      if (isAuthError(error2)) {
-        return { data: null, error: error2 };
+    } catch (error) {
+      if (isAuthError(error)) {
+        return { data: null, error };
       }
-      throw error2;
+      throw error;
     }
   }
   /**
@@ -13891,12 +13891,12 @@ var GoTrueAdminApi = class {
   async _adminListPasskeys(params) {
     validateUUID(params.userId);
     try {
-      return await _request(this.fetch, "GET", `${this.url}/admin/users/${params.userId}/passkeys`, { headers: this.headers, xform: (data2) => ({ data: data2, error: null }) });
-    } catch (error2) {
-      if (isAuthError(error2)) {
-        return { data: null, error: error2 };
+      return await _request(this.fetch, "GET", `${this.url}/admin/users/${params.userId}/passkeys`, { headers: this.headers, xform: (data) => ({ data, error: null }) });
+    } catch (error) {
+      if (isAuthError(error)) {
+        return { data: null, error };
       }
-      throw error2;
+      throw error;
     }
   }
   /**
@@ -13910,11 +13910,11 @@ var GoTrueAdminApi = class {
     try {
       await _request(this.fetch, "DELETE", `${this.url}/admin/users/${params.userId}/passkeys/${params.passkeyId}`, { headers: this.headers, noResolveJson: true });
       return { data: null, error: null };
-    } catch (error2) {
-      if (isAuthError(error2)) {
-        return { data: null, error: error2 };
+    } catch (error) {
+      if (isAuthError(error)) {
+        return { data: null, error };
       }
-      throw error2;
+      throw error;
     }
   }
 };
@@ -14064,26 +14064,26 @@ var WebAuthnUnknownError = class extends WebAuthnError {
     this.originalError = originalError;
   }
 };
-function identifyRegistrationError({ error: error2, options }) {
+function identifyRegistrationError({ error, options }) {
   var _a, _b, _c;
   const { publicKey } = options;
   if (!publicKey) {
     throw Error("options was missing required publicKey property");
   }
-  if (error2.name === "AbortError") {
+  if (error.name === "AbortError") {
     if (options.signal instanceof AbortSignal) {
       return new WebAuthnError({
         message: "Registration ceremony was sent an abort signal",
         code: "ERROR_CEREMONY_ABORTED",
-        cause: error2
+        cause: error
       });
     }
-  } else if (error2.name === "ConstraintError") {
+  } else if (error.name === "ConstraintError") {
     if (((_a = publicKey.authenticatorSelection) === null || _a === void 0 ? void 0 : _a.requireResidentKey) === true) {
       return new WebAuthnError({
         message: "Discoverable credentials were required but no available authenticator supported it",
         code: "ERROR_AUTHENTICATOR_MISSING_DISCOVERABLE_CREDENTIAL_SUPPORT",
-        cause: error2
+        cause: error
       });
     } else if (
       // @ts-ignore: `mediation` doesn't yet exist on CredentialCreationOptions but it's possible as of Sept 2024
@@ -14092,122 +14092,122 @@ function identifyRegistrationError({ error: error2, options }) {
       return new WebAuthnError({
         message: "User verification was required during automatic registration but it could not be performed",
         code: "ERROR_AUTO_REGISTER_USER_VERIFICATION_FAILURE",
-        cause: error2
+        cause: error
       });
     } else if (((_c = publicKey.authenticatorSelection) === null || _c === void 0 ? void 0 : _c.userVerification) === "required") {
       return new WebAuthnError({
         message: "User verification was required but no available authenticator supported it",
         code: "ERROR_AUTHENTICATOR_MISSING_USER_VERIFICATION_SUPPORT",
-        cause: error2
+        cause: error
       });
     }
-  } else if (error2.name === "InvalidStateError") {
+  } else if (error.name === "InvalidStateError") {
     return new WebAuthnError({
       message: "The authenticator was previously registered",
       code: "ERROR_AUTHENTICATOR_PREVIOUSLY_REGISTERED",
-      cause: error2
+      cause: error
     });
-  } else if (error2.name === "NotAllowedError") {
+  } else if (error.name === "NotAllowedError") {
     return new WebAuthnError({
-      message: error2.message,
+      message: error.message,
       code: "ERROR_PASSTHROUGH_SEE_CAUSE_PROPERTY",
-      cause: error2
+      cause: error
     });
-  } else if (error2.name === "NotSupportedError") {
+  } else if (error.name === "NotSupportedError") {
     const validPubKeyCredParams = publicKey.pubKeyCredParams.filter((param) => param.type === "public-key");
     if (validPubKeyCredParams.length === 0) {
       return new WebAuthnError({
         message: 'No entry in pubKeyCredParams was of type "public-key"',
         code: "ERROR_MALFORMED_PUBKEYCREDPARAMS",
-        cause: error2
+        cause: error
       });
     }
     return new WebAuthnError({
       message: "No available authenticator supported any of the specified pubKeyCredParams algorithms",
       code: "ERROR_AUTHENTICATOR_NO_SUPPORTED_PUBKEYCREDPARAMS_ALG",
-      cause: error2
+      cause: error
     });
-  } else if (error2.name === "SecurityError") {
+  } else if (error.name === "SecurityError") {
     const effectiveDomain = window.location.hostname;
     if (!isValidDomain(effectiveDomain)) {
       return new WebAuthnError({
         message: `${window.location.hostname} is an invalid domain`,
         code: "ERROR_INVALID_DOMAIN",
-        cause: error2
+        cause: error
       });
     } else if (publicKey.rp.id !== effectiveDomain) {
       return new WebAuthnError({
         message: `The RP ID "${publicKey.rp.id}" is invalid for this domain`,
         code: "ERROR_INVALID_RP_ID",
-        cause: error2
+        cause: error
       });
     }
-  } else if (error2.name === "TypeError") {
+  } else if (error.name === "TypeError") {
     if (publicKey.user.id.byteLength < 1 || publicKey.user.id.byteLength > 64) {
       return new WebAuthnError({
         message: "User ID was not between 1 and 64 characters",
         code: "ERROR_INVALID_USER_ID_LENGTH",
-        cause: error2
+        cause: error
       });
     }
-  } else if (error2.name === "UnknownError") {
+  } else if (error.name === "UnknownError") {
     return new WebAuthnError({
       message: "The authenticator was unable to process the specified options, or could not create a new credential",
       code: "ERROR_AUTHENTICATOR_GENERAL_ERROR",
-      cause: error2
+      cause: error
     });
   }
   return new WebAuthnError({
     message: "a Non-Webauthn related error has occurred",
     code: "ERROR_PASSTHROUGH_SEE_CAUSE_PROPERTY",
-    cause: error2
+    cause: error
   });
 }
-function identifyAuthenticationError({ error: error2, options }) {
+function identifyAuthenticationError({ error, options }) {
   const { publicKey } = options;
   if (!publicKey) {
     throw Error("options was missing required publicKey property");
   }
-  if (error2.name === "AbortError") {
+  if (error.name === "AbortError") {
     if (options.signal instanceof AbortSignal) {
       return new WebAuthnError({
         message: "Authentication ceremony was sent an abort signal",
         code: "ERROR_CEREMONY_ABORTED",
-        cause: error2
+        cause: error
       });
     }
-  } else if (error2.name === "NotAllowedError") {
+  } else if (error.name === "NotAllowedError") {
     return new WebAuthnError({
-      message: error2.message,
+      message: error.message,
       code: "ERROR_PASSTHROUGH_SEE_CAUSE_PROPERTY",
-      cause: error2
+      cause: error
     });
-  } else if (error2.name === "SecurityError") {
+  } else if (error.name === "SecurityError") {
     const effectiveDomain = window.location.hostname;
     if (!isValidDomain(effectiveDomain)) {
       return new WebAuthnError({
         message: `${window.location.hostname} is an invalid domain`,
         code: "ERROR_INVALID_DOMAIN",
-        cause: error2
+        cause: error
       });
     } else if (publicKey.rpId !== effectiveDomain) {
       return new WebAuthnError({
         message: `The RP ID "${publicKey.rpId}" is invalid for this domain`,
         code: "ERROR_INVALID_RP_ID",
-        cause: error2
+        cause: error
       });
     }
-  } else if (error2.name === "UnknownError") {
+  } else if (error.name === "UnknownError") {
     return new WebAuthnError({
       message: "The authenticator was unable to process the specified options, or could not create a new assertion signature",
       code: "ERROR_AUTHENTICATOR_GENERAL_ERROR",
-      cause: error2
+      cause: error
     });
   }
   return new WebAuthnError({
     message: "a Non-Webauthn related error has occurred",
     code: "ERROR_PASSTHROUGH_SEE_CAUSE_PROPERTY",
-    cause: error2
+    cause: error
   });
 }
 
@@ -14536,51 +14536,51 @@ var WebAuthnApi = class {
       switch (challengeResponse.webauthn.type) {
         case "create": {
           const options = mergeCredentialCreationOptions(challengeResponse.webauthn.credential_options.publicKey, overrides === null || overrides === void 0 ? void 0 : overrides.create);
-          const { data: data2, error: error2 } = await createCredential({
+          const { data, error } = await createCredential({
             publicKey: options,
             signal: abortSignal
           });
-          if (data2) {
+          if (data) {
             return {
               data: {
                 factorId,
                 challengeId: challengeResponse.id,
                 webauthn: {
                   type: challengeResponse.webauthn.type,
-                  credential_response: data2
+                  credential_response: data
                 }
               },
               error: null
             };
           }
-          return { data: null, error: error2 };
+          return { data: null, error };
         }
         case "request": {
           const options = mergeCredentialRequestOptions(challengeResponse.webauthn.credential_options.publicKey, overrides === null || overrides === void 0 ? void 0 : overrides.request);
-          const { data: data2, error: error2 } = await getCredential(Object.assign(Object.assign({}, challengeResponse.webauthn.credential_options), { publicKey: options, signal: abortSignal }));
-          if (data2) {
+          const { data, error } = await getCredential(Object.assign(Object.assign({}, challengeResponse.webauthn.credential_options), { publicKey: options, signal: abortSignal }));
+          if (data) {
             return {
               data: {
                 factorId,
                 challengeId: challengeResponse.id,
                 webauthn: {
                   type: challengeResponse.webauthn.type,
-                  credential_response: data2
+                  credential_response: data
                 }
               },
               error: null
             };
           }
-          return { data: null, error: error2 };
+          return { data: null, error };
         }
       }
-    } catch (error2) {
-      if (isAuthError(error2)) {
-        return { data: null, error: error2 };
+    } catch (error) {
+      if (isAuthError(error)) {
+        return { data: null, error };
       }
       return {
         data: null,
-        error: new AuthUnknownError("Unexpected error in challenge", error2)
+        error: new AuthUnknownError("Unexpected error in challenge", error)
       };
     }
   }
@@ -14652,13 +14652,13 @@ var WebAuthnApi = class {
           credential_response: webauthn.credential_response
         }
       });
-    } catch (error2) {
-      if (isAuthError(error2)) {
-        return { data: null, error: error2 };
+    } catch (error) {
+      if (isAuthError(error)) {
+        return { data: null, error };
       }
       return {
         data: null,
-        error: new AuthUnknownError("Unexpected error in authenticate", error2)
+        error: new AuthUnknownError("Unexpected error in authenticate", error)
       };
     }
   }
@@ -14722,13 +14722,13 @@ var WebAuthnApi = class {
           credential_response: challengeResponse.webauthn.credential_response
         }
       });
-    } catch (error2) {
-      if (isAuthError(error2)) {
-        return { data: null, error: error2 };
+    } catch (error) {
+      if (isAuthError(error)) {
+        return { data: null, error };
       }
       return {
         data: null,
-        error: new AuthUnknownError("Unexpected error in register", error2)
+        error: new AuthUnknownError("Unexpected error in register", error)
       };
     }
   }
@@ -14922,14 +14922,14 @@ var GoTrueClient = class _GoTrueClient {
         }
         try {
           await this._notifyAllSubscribers(event.data.event, event.data.session, false);
-        } catch (error2) {
-          this._debug("#broadcastChannel", "error", error2);
+        } catch (error) {
+          this._debug("#broadcastChannel", "error", error);
         }
       });
     }
     if (!settings.skipAutoInitialize) {
-      this.initialize().catch((error2) => {
-        this._debug("#initialize()", "error", error2);
+      this.initialize().catch((error) => {
+        this._debug("#initialize()", "error", error);
       });
     }
   }
@@ -15019,18 +15019,18 @@ var GoTrueClient = class _GoTrueClient {
         }
       }
       if (isBrowser() && this.detectSessionInUrl && callbackUrlType !== "none") {
-        const { data: data2, error: error2 } = await this._getSessionFromURL(params, callbackUrlType);
-        if (error2) {
-          this._debug("#_initialize()", "error detecting session from URL", error2);
-          if (isAuthImplicitGrantRedirectError(error2)) {
-            const errorCode = (_a = error2.details) === null || _a === void 0 ? void 0 : _a.code;
+        const { data, error } = await this._getSessionFromURL(params, callbackUrlType);
+        if (error) {
+          this._debug("#_initialize()", "error detecting session from URL", error);
+          if (isAuthImplicitGrantRedirectError(error)) {
+            const errorCode = (_a = error.details) === null || _a === void 0 ? void 0 : _a.code;
             if (errorCode === "identity_already_exists" || errorCode === "identity_not_found" || errorCode === "single_identity_not_deletable") {
-              return { error: error2 };
+              return { error };
             }
           }
-          return { error: error2 };
+          return { error };
         }
-        const { session, redirectType } = data2;
+        const { session, redirectType } = data;
         this._debug("#_initialize()", "detected session in URL", session, "redirect type", redirectType);
         await this._saveSession(session);
         setTimeout(async () => {
@@ -15044,12 +15044,12 @@ var GoTrueClient = class _GoTrueClient {
       }
       await this._recoverAndRefresh();
       return { error: null };
-    } catch (error2) {
-      if (isAuthError(error2)) {
-        return this._returnResult({ error: error2 });
+    } catch (error) {
+      if (isAuthError(error)) {
+        return this._returnResult({ error });
       }
       return this._returnResult({
-        error: new AuthUnknownError("Unexpected error during initialization", error2)
+        error: new AuthUnknownError("Unexpected error during initialization", error)
       });
     } finally {
       await this._handleVisibilityChange();
@@ -15140,22 +15140,22 @@ var GoTrueClient = class _GoTrueClient {
         },
         xform: _sessionResponse
       });
-      const { data: data2, error: error2 } = res;
-      if (error2 || !data2) {
-        return this._returnResult({ data: { user: null, session: null }, error: error2 });
+      const { data, error } = res;
+      if (error || !data) {
+        return this._returnResult({ data: { user: null, session: null }, error });
       }
-      const session = data2.session;
-      const user = data2.user;
-      if (data2.session) {
-        await this._saveSession(data2.session);
+      const session = data.session;
+      const user = data.user;
+      if (data.session) {
+        await this._saveSession(data.session);
         await this._notifyAllSubscribers("SIGNED_IN", session);
       }
       return this._returnResult({ data: { user, session }, error: null });
-    } catch (error2) {
-      if (isAuthError(error2)) {
-        return this._returnResult({ data: { user: null, session: null }, error: error2 });
+    } catch (error) {
+      if (isAuthError(error)) {
+        return this._returnResult({ data: { user: null, session: null }, error });
       }
-      throw error2;
+      throw error;
     }
   }
   /**
@@ -15377,24 +15377,24 @@ var GoTrueClient = class _GoTrueClient {
       } else {
         throw new AuthInvalidCredentialsError("You must provide either an email or phone number and a password");
       }
-      const { data: data2, error: error2 } = res;
-      if (error2 || !data2) {
+      const { data, error } = res;
+      if (error || !data) {
         await removePKCEVerifier(this.storage, this.storageKey, flowId);
-        return this._returnResult({ data: { user: null, session: null }, error: error2 });
+        return this._returnResult({ data: { user: null, session: null }, error });
       }
-      const session = data2.session;
-      const user = data2.user;
-      if (data2.session) {
-        await this._saveSession(data2.session);
+      const session = data.session;
+      const user = data.user;
+      if (data.session) {
+        await this._saveSession(data.session);
         await this._notifyAllSubscribers("SIGNED_IN", session);
       }
       return this._returnResult({ data: { user, session }, error: null });
-    } catch (error2) {
+    } catch (error) {
       await removePKCEVerifier(this.storage, this.storageKey, flowId);
-      if (isAuthError(error2)) {
-        return this._returnResult({ data: { user: null, session: null }, error: error2 });
+      if (isAuthError(error)) {
+        return this._returnResult({ data: { user: null, session: null }, error });
       }
-      throw error2;
+      throw error;
     }
   }
   /**
@@ -15557,26 +15557,26 @@ var GoTrueClient = class _GoTrueClient {
       } else {
         throw new AuthInvalidCredentialsError("You must provide either an email or phone number and a password");
       }
-      const { data: data2, error: error2 } = res;
-      if (error2) {
-        return this._returnResult({ data: { user: null, session: null }, error: error2 });
-      } else if (!data2 || !data2.session || !data2.user) {
+      const { data, error } = res;
+      if (error) {
+        return this._returnResult({ data: { user: null, session: null }, error });
+      } else if (!data || !data.session || !data.user) {
         const invalidTokenError = new AuthInvalidTokenResponseError();
         return this._returnResult({ data: { user: null, session: null }, error: invalidTokenError });
       }
-      if (data2.session) {
-        await this._saveSession(data2.session);
-        await this._notifyAllSubscribers("SIGNED_IN", data2.session);
+      if (data.session) {
+        await this._saveSession(data.session);
+        await this._notifyAllSubscribers("SIGNED_IN", data.session);
       }
       return this._returnResult({
-        data: Object.assign({ user: data2.user, session: data2.session }, data2.weak_password ? { weakPassword: data2.weak_password } : null),
-        error: error2
+        data: Object.assign({ user: data.user, session: data.session }, data.weak_password ? { weakPassword: data.weak_password } : null),
+        error
       });
-    } catch (error2) {
-      if (isAuthError(error2)) {
-        return this._returnResult({ data: { user: null, session: null }, error: error2 });
+    } catch (error) {
+      if (isAuthError(error)) {
+        return this._returnResult({ data: { user: null, session: null }, error });
       }
-      throw error2;
+      throw error;
     }
   }
   /**
@@ -16026,7 +16026,7 @@ var GoTrueClient = class _GoTrueClient {
       });
     }
     try {
-      const { data: data2, error: error2 } = await _request(this.fetch, "POST", `${this.url}/token?grant_type=web3`, {
+      const { data, error } = await _request(this.fetch, "POST", `${this.url}/token?grant_type=web3`, {
         headers: this.headers,
         body: Object.assign({
           chain: "ethereum",
@@ -16035,23 +16035,23 @@ var GoTrueClient = class _GoTrueClient {
         }, ((_l = credentials.options) === null || _l === void 0 ? void 0 : _l.captchaToken) ? { gotrue_meta_security: { captcha_token: (_m = credentials.options) === null || _m === void 0 ? void 0 : _m.captchaToken } } : null),
         xform: _sessionResponse
       });
-      if (error2) {
-        throw error2;
+      if (error) {
+        throw error;
       }
-      if (!data2 || !data2.session || !data2.user) {
+      if (!data || !data.session || !data.user) {
         const invalidTokenError = new AuthInvalidTokenResponseError();
         return this._returnResult({ data: { user: null, session: null }, error: invalidTokenError });
       }
-      if (data2.session) {
-        await this._saveSession(data2.session);
-        await this._notifyAllSubscribers("SIGNED_IN", data2.session);
+      if (data.session) {
+        await this._saveSession(data.session);
+        await this._notifyAllSubscribers("SIGNED_IN", data.session);
       }
-      return this._returnResult({ data: Object.assign({}, data2), error: error2 });
-    } catch (error2) {
-      if (isAuthError(error2)) {
-        return this._returnResult({ data: { user: null, session: null }, error: error2 });
+      return this._returnResult({ data: Object.assign({}, data), error });
+    } catch (error) {
+      if (isAuthError(error)) {
+        return this._returnResult({ data: { user: null, session: null }, error });
       }
-      throw error2;
+      throw error;
     }
   }
   async signInWithSolana(credentials) {
@@ -16130,28 +16130,28 @@ var GoTrueClient = class _GoTrueClient {
       }
     }
     try {
-      const { data: data2, error: error2 } = await _request(this.fetch, "POST", `${this.url}/token?grant_type=web3`, {
+      const { data, error } = await _request(this.fetch, "POST", `${this.url}/token?grant_type=web3`, {
         headers: this.headers,
         body: Object.assign({ chain: "solana", message, signature: bytesToBase64URL(signature) }, ((_m = credentials.options) === null || _m === void 0 ? void 0 : _m.captchaToken) ? { gotrue_meta_security: { captcha_token: (_o = credentials.options) === null || _o === void 0 ? void 0 : _o.captchaToken } } : null),
         xform: _sessionResponse
       });
-      if (error2) {
-        throw error2;
+      if (error) {
+        throw error;
       }
-      if (!data2 || !data2.session || !data2.user) {
+      if (!data || !data.session || !data.user) {
         const invalidTokenError = new AuthInvalidTokenResponseError();
         return this._returnResult({ data: { user: null, session: null }, error: invalidTokenError });
       }
-      if (data2.session) {
-        await this._saveSession(data2.session);
-        await this._notifyAllSubscribers("SIGNED_IN", data2.session);
+      if (data.session) {
+        await this._saveSession(data.session);
+        await this._notifyAllSubscribers("SIGNED_IN", data.session);
       }
-      return this._returnResult({ data: Object.assign({}, data2), error: error2 });
-    } catch (error2) {
-      if (isAuthError(error2)) {
-        return this._returnResult({ data: { user: null, session: null }, error: error2 });
+      return this._returnResult({ data: Object.assign({}, data), error });
+    } catch (error) {
+      if (isAuthError(error)) {
+        return this._returnResult({ data: { user: null, session: null }, error });
       }
-      throw error2;
+      throw error;
     }
   }
   async _exchangeCodeForSession(authCode, options) {
@@ -16166,7 +16166,7 @@ var GoTrueClient = class _GoTrueClient {
       if (!codeVerifier && this.flowType === "pkce") {
         throw new AuthPKCECodeVerifierMissingError();
       }
-      const { data: data2, error: error2 } = await _request(this.fetch, "POST", `${this.url}/token?grant_type=pkce`, {
+      const { data, error } = await _request(this.fetch, "POST", `${this.url}/token?grant_type=pkce`, {
         headers: this.headers,
         body: {
           auth_code: authCode,
@@ -16175,30 +16175,30 @@ var GoTrueClient = class _GoTrueClient {
         xform: _sessionResponse
       });
       await removePKCEVerifier(this.storage, this.storageKey, flowId);
-      if (error2) {
-        throw error2;
+      if (error) {
+        throw error;
       }
-      if (!data2 || !data2.session || !data2.user) {
+      if (!data || !data.session || !data.user) {
         const invalidTokenError = new AuthInvalidTokenResponseError();
         return this._returnResult({
           data: { user: null, session: null, redirectType: null },
           error: invalidTokenError
         });
       }
-      if (data2.session) {
-        await this._saveSession(data2.session);
-        await this._notifyAllSubscribers(redirectType === "recovery" ? "PASSWORD_RECOVERY" : "SIGNED_IN", data2.session);
+      if (data.session) {
+        await this._saveSession(data.session);
+        await this._notifyAllSubscribers(redirectType === "recovery" ? "PASSWORD_RECOVERY" : "SIGNED_IN", data.session);
       }
-      return this._returnResult({ data: Object.assign(Object.assign({}, data2), { redirectType: redirectType !== null && redirectType !== void 0 ? redirectType : null }), error: error2 });
-    } catch (error2) {
+      return this._returnResult({ data: Object.assign(Object.assign({}, data), { redirectType: redirectType !== null && redirectType !== void 0 ? redirectType : null }), error });
+    } catch (error) {
       await removePKCEVerifier(this.storage, this.storageKey, flowId);
-      if (isAuthError(error2)) {
+      if (isAuthError(error)) {
         return this._returnResult({
           data: { user: null, session: null, redirectType: null },
-          error: error2
+          error
         });
       }
-      throw error2;
+      throw error;
     }
   }
   /**
@@ -16290,23 +16290,23 @@ var GoTrueClient = class _GoTrueClient {
         },
         xform: _sessionResponse
       });
-      const { data: data2, error: error2 } = res;
-      if (error2) {
-        return this._returnResult({ data: { user: null, session: null }, error: error2 });
-      } else if (!data2 || !data2.session || !data2.user) {
+      const { data, error } = res;
+      if (error) {
+        return this._returnResult({ data: { user: null, session: null }, error });
+      } else if (!data || !data.session || !data.user) {
         const invalidTokenError = new AuthInvalidTokenResponseError();
         return this._returnResult({ data: { user: null, session: null }, error: invalidTokenError });
       }
-      if (data2.session) {
-        await this._saveSession(data2.session);
-        await this._notifyAllSubscribers("SIGNED_IN", data2.session);
+      if (data.session) {
+        await this._saveSession(data.session);
+        await this._notifyAllSubscribers("SIGNED_IN", data.session);
       }
-      return this._returnResult({ data: data2, error: error2 });
-    } catch (error2) {
-      if (isAuthError(error2)) {
-        return this._returnResult({ data: { user: null, session: null }, error: error2 });
+      return this._returnResult({ data, error });
+    } catch (error) {
+      if (isAuthError(error)) {
+        return this._returnResult({ data: { user: null, session: null }, error });
       }
-      throw error2;
+      throw error;
     }
   }
   /**
@@ -16398,7 +16398,7 @@ var GoTrueClient = class _GoTrueClient {
           ;
           [codeChallenge, codeChallengeMethod, flowId] = await this._getCodeChallengeAndMethod();
         }
-        const { error: error2 } = await _request(this.fetch, "POST", `${this.url}/otp`, {
+        const { error } = await _request(this.fetch, "POST", `${this.url}/otp`, {
           headers: this.headers,
           body: {
             email,
@@ -16410,11 +16410,11 @@ var GoTrueClient = class _GoTrueClient {
           },
           redirectTo: this._maybeAppendFlowIdToRedirect(options === null || options === void 0 ? void 0 : options.emailRedirectTo, flowId)
         });
-        return this._returnResult({ data: { user: null, session: null }, error: error2 });
+        return this._returnResult({ data: { user: null, session: null }, error });
       }
       if ("phone" in credentials) {
         const { phone, options } = credentials;
-        const { data: data2, error: error2 } = await _request(this.fetch, "POST", `${this.url}/otp`, {
+        const { data, error } = await _request(this.fetch, "POST", `${this.url}/otp`, {
           headers: this.headers,
           body: {
             phone,
@@ -16425,17 +16425,17 @@ var GoTrueClient = class _GoTrueClient {
           }
         });
         return this._returnResult({
-          data: { user: null, session: null, messageId: data2 === null || data2 === void 0 ? void 0 : data2.message_id },
-          error: error2
+          data: { user: null, session: null, messageId: data === null || data === void 0 ? void 0 : data.message_id },
+          error
         });
       }
       throw new AuthInvalidCredentialsError("You must provide either an email or phone number.");
-    } catch (error2) {
+    } catch (error) {
       await removePKCEVerifier(this.storage, this.storageKey, flowId);
-      if (isAuthError(error2)) {
-        return this._returnResult({ data: { user: null, session: null }, error: error2 });
+      if (isAuthError(error)) {
+        return this._returnResult({ data: { user: null, session: null }, error });
       }
-      throw error2;
+      throw error;
     }
   }
   /**
@@ -16584,31 +16584,31 @@ var GoTrueClient = class _GoTrueClient {
         redirectTo = (_a = params.options) === null || _a === void 0 ? void 0 : _a.redirectTo;
         captchaToken = (_b = params.options) === null || _b === void 0 ? void 0 : _b.captchaToken;
       }
-      const { data: data2, error: error2 } = await _request(this.fetch, "POST", `${this.url}/verify`, {
+      const { data, error } = await _request(this.fetch, "POST", `${this.url}/verify`, {
         headers: this.headers,
         body: Object.assign(Object.assign({}, params), { gotrue_meta_security: { captcha_token: captchaToken } }),
         redirectTo,
         xform: _sessionResponse
       });
-      if (error2) {
-        throw error2;
+      if (error) {
+        throw error;
       }
-      if (!data2) {
+      if (!data) {
         const tokenVerificationError = new Error("An error occurred on token verification.");
         throw tokenVerificationError;
       }
-      const session = data2.session;
-      const user = data2.user;
+      const session = data.session;
+      const user = data.user;
       if (session === null || session === void 0 ? void 0 : session.access_token) {
         await this._saveSession(session);
         await this._notifyAllSubscribers(params.type == "recovery" ? "PASSWORD_RECOVERY" : "SIGNED_IN", session);
       }
       return this._returnResult({ data: { user, session }, error: null });
-    } catch (error2) {
-      if (isAuthError(error2)) {
-        return this._returnResult({ data: { user: null, session: null }, error: error2 });
+    } catch (error) {
+      if (isAuthError(error)) {
+        return this._returnResult({ data: { user: null, session: null }, error });
       }
-      throw error2;
+      throw error;
     }
   }
   /**
@@ -16683,12 +16683,12 @@ var GoTrueClient = class _GoTrueClient {
         window.location.assign(result.data.url);
       }
       return this._returnResult(result);
-    } catch (error2) {
+    } catch (error) {
       await removePKCEVerifier(this.storage, this.storageKey, flowId);
-      if (isAuthError(error2)) {
-        return this._returnResult({ data: null, error: error2 });
+      if (isAuthError(error)) {
+        return this._returnResult({ data: null, error });
       }
-      throw error2;
+      throw error;
     }
   }
   /**
@@ -16729,17 +16729,17 @@ var GoTrueClient = class _GoTrueClient {
           throw sessionError;
         if (!session)
           throw new AuthSessionMissingError();
-        const { error: error2 } = await _request(this.fetch, "GET", `${this.url}/reauthenticate`, {
+        const { error } = await _request(this.fetch, "GET", `${this.url}/reauthenticate`, {
           headers: this.headers,
           jwt: session.access_token
         });
-        return this._returnResult({ data: { user: null, session: null }, error: error2 });
+        return this._returnResult({ data: { user: null, session: null }, error });
       });
-    } catch (error2) {
-      if (isAuthError(error2)) {
-        return this._returnResult({ data: { user: null, session: null }, error: error2 });
+    } catch (error) {
+      if (isAuthError(error)) {
+        return this._returnResult({ data: { user: null, session: null }, error });
       }
-      throw error2;
+      throw error;
     }
   }
   /**
@@ -16813,7 +16813,7 @@ var GoTrueClient = class _GoTrueClient {
           ;
           [codeChallenge, codeChallengeMethod, flowId] = await this._getCodeChallengeAndMethod();
         }
-        const { error: error2 } = await _request(this.fetch, "POST", endpoint, {
+        const { error } = await _request(this.fetch, "POST", endpoint, {
           headers: this.headers,
           body: {
             email,
@@ -16824,13 +16824,13 @@ var GoTrueClient = class _GoTrueClient {
           },
           redirectTo: this._maybeAppendFlowIdToRedirect(options === null || options === void 0 ? void 0 : options.emailRedirectTo, flowId)
         });
-        if (error2) {
+        if (error) {
           await removePKCEVerifier(this.storage, this.storageKey, flowId);
         }
-        return this._returnResult({ data: { user: null, session: null }, error: error2 });
+        return this._returnResult({ data: { user: null, session: null }, error });
       } else if ("phone" in credentials) {
         const { phone, type, options } = credentials;
-        const { data: data2, error: error2 } = await _request(this.fetch, "POST", endpoint, {
+        const { data, error } = await _request(this.fetch, "POST", endpoint, {
           headers: this.headers,
           body: {
             phone,
@@ -16839,17 +16839,17 @@ var GoTrueClient = class _GoTrueClient {
           }
         });
         return this._returnResult({
-          data: { user: null, session: null, messageId: data2 === null || data2 === void 0 ? void 0 : data2.message_id },
-          error: error2
+          data: { user: null, session: null, messageId: data === null || data === void 0 ? void 0 : data.message_id },
+          error
         });
       }
       throw new AuthInvalidCredentialsError("You must provide either an email or phone number and a type");
-    } catch (error2) {
+    } catch (error) {
       await removePKCEVerifier(this.storage, this.storageKey, flowId);
-      if (isAuthError(error2)) {
-        return this._returnResult({ data: { user: null, session: null }, error: error2 });
+      if (isAuthError(error)) {
+        return this._returnResult({ data: { user: null, session: null }, error });
       }
-      throw error2;
+      throw error;
     }
   }
   /**
@@ -17045,8 +17045,8 @@ var GoTrueClient = class _GoTrueClient {
       if (!hasExpired) {
         return { data: { session: await this._hydrateSessionUser(currentSession) }, error: null };
       }
-      const { data: session, error: error2 } = await this._callRefreshToken(currentSession.refresh_token);
-      if (error2) {
+      const { data: session, error } = await this._callRefreshToken(currentSession.refresh_token);
+      if (error) {
         const stored = await getItemAsync(this.storage, this.storageKey);
         if (stored && this._isValidSession(stored) && stored.expires_at && stored.expires_at * 1e3 > Date.now()) {
           return this._returnResult({
@@ -17054,7 +17054,7 @@ var GoTrueClient = class _GoTrueClient {
             error: null
           });
         }
-        return this._returnResult({ data: { session: null }, error: error2 });
+        return this._returnResult({ data: { session: null }, error });
       }
       return this._returnResult({ data: { session }, error: null });
     } finally {
@@ -17186,27 +17186,27 @@ var GoTrueClient = class _GoTrueClient {
       }
       return await this._useSession(async (result) => {
         var _a, _b, _c;
-        const { data: data2, error: error2 } = result;
-        if (error2) {
-          throw error2;
+        const { data, error } = result;
+        if (error) {
+          throw error;
         }
-        if (!((_a = data2.session) === null || _a === void 0 ? void 0 : _a.access_token) && !this.hasCustomAuthorizationHeader) {
+        if (!((_a = data.session) === null || _a === void 0 ? void 0 : _a.access_token) && !this.hasCustomAuthorizationHeader) {
           return { data: { user: null }, error: new AuthSessionMissingError() };
         }
         return await _request(this.fetch, "GET", `${this.url}/user`, {
           headers: this.headers,
-          jwt: (_c = (_b = data2.session) === null || _b === void 0 ? void 0 : _b.access_token) !== null && _c !== void 0 ? _c : void 0,
+          jwt: (_c = (_b = data.session) === null || _b === void 0 ? void 0 : _b.access_token) !== null && _c !== void 0 ? _c : void 0,
           xform: _userResponse
         });
       });
-    } catch (error2) {
-      if (isAuthError(error2)) {
-        if (isAuthSessionMissingError(error2)) {
+    } catch (error) {
+      if (isAuthError(error)) {
+        if (isAuthSessionMissingError(error)) {
           await this._removeSession();
         }
-        return this._returnResult({ data: { user: null }, error: error2 });
+        return this._returnResult({ data: { user: null }, error });
       }
-      throw error2;
+      throw error;
     }
   }
   /**
@@ -17350,7 +17350,7 @@ var GoTrueClient = class _GoTrueClient {
           ;
           [codeChallenge, codeChallengeMethod, flowId] = await this._getCodeChallengeAndMethod();
         }
-        const { data: data2, error: userError } = await _request(this.fetch, "PUT", `${this.url}/user`, {
+        const { data, error: userError } = await _request(this.fetch, "PUT", `${this.url}/user`, {
           headers: this.headers,
           redirectTo: this._maybeAppendFlowIdToRedirect(options === null || options === void 0 ? void 0 : options.emailRedirectTo, flowId),
           body: Object.assign(Object.assign({}, attributes), { code_challenge: codeChallenge, code_challenge_method: codeChallengeMethod }),
@@ -17360,17 +17360,17 @@ var GoTrueClient = class _GoTrueClient {
         if (userError) {
           throw userError;
         }
-        session.user = data2.user;
+        session.user = data.user;
         await this._saveSession(session);
         await this._notifyAllSubscribers("USER_UPDATED", session);
         return this._returnResult({ data: { user: session.user }, error: null });
       });
-    } catch (error2) {
+    } catch (error) {
       await removePKCEVerifier(this.storage, this.storageKey, flowId);
-      if (isAuthError(error2)) {
-        return this._returnResult({ data: { user: null }, error: error2 });
+      if (isAuthError(error)) {
+        return this._returnResult({ data: { user: null }, error });
       }
-      throw error2;
+      throw error;
     }
   }
   /**
@@ -17521,23 +17521,23 @@ var GoTrueClient = class _GoTrueClient {
         hasExpired = expiresAt2 <= timeNow;
       }
       if (hasExpired) {
-        const { data: refreshedSession, error: error2 } = await this._callRefreshToken(currentSession.refresh_token);
-        if (error2) {
-          return this._returnResult({ data: { user: null, session: null }, error: error2 });
+        const { data: refreshedSession, error } = await this._callRefreshToken(currentSession.refresh_token);
+        if (error) {
+          return this._returnResult({ data: { user: null, session: null }, error });
         }
         if (!refreshedSession) {
           return { data: { user: null, session: null }, error: null };
         }
         session = refreshedSession;
       } else {
-        const { data: data2, error: error2 } = await this._getUser(currentSession.access_token);
-        if (error2) {
-          return this._returnResult({ data: { user: null, session: null }, error: error2 });
+        const { data, error } = await this._getUser(currentSession.access_token);
+        if (error) {
+          return this._returnResult({ data: { user: null, session: null }, error });
         }
         session = {
           access_token: currentSession.access_token,
           refresh_token: currentSession.refresh_token,
-          user: data2.user,
+          user: data.user,
           token_type: "bearer",
           expires_in: expiresAt2 - timeNow,
           expires_at: expiresAt2
@@ -17546,11 +17546,11 @@ var GoTrueClient = class _GoTrueClient {
         await this._notifyAllSubscribers("SIGNED_IN", session);
       }
       return this._returnResult({ data: { user: session.user, session }, error: null });
-    } catch (error2) {
-      if (isAuthError(error2)) {
-        return this._returnResult({ data: { session: null, user: null }, error: error2 });
+    } catch (error) {
+      if (isAuthError(error)) {
+        return this._returnResult({ data: { session: null, user: null }, error });
       }
-      throw error2;
+      throw error;
     }
   }
   /**
@@ -17692,29 +17692,29 @@ var GoTrueClient = class _GoTrueClient {
       return await this._useSession(async (result) => {
         var _a;
         if (!currentSession) {
-          const { data: data2, error: error3 } = result;
-          if (error3) {
-            throw error3;
+          const { data, error: error2 } = result;
+          if (error2) {
+            throw error2;
           }
-          currentSession = (_a = data2.session) !== null && _a !== void 0 ? _a : void 0;
+          currentSession = (_a = data.session) !== null && _a !== void 0 ? _a : void 0;
         }
         if (!(currentSession === null || currentSession === void 0 ? void 0 : currentSession.refresh_token)) {
           throw new AuthSessionMissingError();
         }
-        const { data: session, error: error2 } = await this._callRefreshToken(currentSession.refresh_token);
-        if (error2) {
-          return this._returnResult({ data: { user: null, session: null }, error: error2 });
+        const { data: session, error } = await this._callRefreshToken(currentSession.refresh_token);
+        if (error) {
+          return this._returnResult({ data: { user: null, session: null }, error });
         }
         if (!session) {
           return this._returnResult({ data: { user: null, session: null }, error: null });
         }
         return this._returnResult({ data: { user: session.user, session }, error: null });
       });
-    } catch (error2) {
-      if (isAuthError(error2)) {
-        return this._returnResult({ data: { user: null, session: null }, error: error2 });
+    } catch (error) {
+      if (isAuthError(error)) {
+        return this._returnResult({ data: { user: null, session: null }, error });
       }
-      throw error2;
+      throw error;
     }
   }
   /**
@@ -17748,17 +17748,17 @@ var GoTrueClient = class _GoTrueClient {
         this._debug("#_initialize()", "begin", "is PKCE flow", true);
         if (!params.code)
           throw new AuthPKCEGrantCodeExchangeError("No code detected.");
-        const { data: data3, error: error3 } = await this._exchangeCodeForSession(params.code, {
+        const { data: data2, error: error2 } = await this._exchangeCodeForSession(params.code, {
           flowId: params[PKCE_FLOW_ID_PARAM]
         });
-        if (error3)
-          throw error3;
+        if (error2)
+          throw error2;
         const url = new URL(window.location.href);
         url.searchParams.delete("code");
         url.searchParams.delete(PKCE_FLOW_ID_PARAM);
         window.history.replaceState(window.history.state, "", url.toString());
         return {
-          data: { session: data3.session, redirectType: (_a = data3.redirectType) !== null && _a !== void 0 ? _a : null },
+          data: { session: data2.session, redirectType: (_a = data2.redirectType) !== null && _a !== void 0 ? _a : null },
           error: null
         };
       }
@@ -17782,9 +17782,9 @@ var GoTrueClient = class _GoTrueClient {
       } else if (timeNow - issuedAt < 0) {
         console.warn("@supabase/gotrue-js: Session as retrieved from URL was issued in the future? Check the device clock for skew", issuedAt, expiresAt2, timeNow);
       }
-      const { data: data2, error: error2 } = await this._getUser(access_token);
-      if (error2)
-        throw error2;
+      const { data, error } = await this._getUser(access_token);
+      if (error)
+        throw error;
       const session = {
         provider_token,
         provider_refresh_token,
@@ -17793,16 +17793,16 @@ var GoTrueClient = class _GoTrueClient {
         expires_at: expiresAt2,
         refresh_token,
         token_type,
-        user: data2.user
+        user: data.user
       };
       window.location.hash = "";
       this._debug("#_getSessionFromURL()", "clearing window.location.hash");
       return this._returnResult({ data: { session, redirectType: params.type }, error: null });
-    } catch (error2) {
-      if (isAuthError(error2)) {
-        return this._returnResult({ data: { session: null, redirectType: null }, error: error2 });
+    } catch (error) {
+      if (isAuthError(error)) {
+        return this._returnResult({ data: { session: null, redirectType: null }, error });
       }
-      throw error2;
+      throw error;
     }
   }
   /**
@@ -17913,14 +17913,14 @@ var GoTrueClient = class _GoTrueClient {
       const removeCurrentSession = async () => {
         await this._removeSession();
       };
-      const { data: data2, error: sessionError } = result;
+      const { data, error: sessionError } = result;
       if (sessionError && !isAuthSessionMissingError(sessionError)) {
         if (scope === "local" && isAuthRetryableFetchError(sessionError)) {
           await removeCurrentSession();
         }
         return this._returnResult({ error: sessionError });
       }
-      const accessToken = (_a = data2.session) === null || _a === void 0 ? void 0 : _a.access_token;
+      const accessToken = (_a = data.session) === null || _a === void 0 ? void 0 : _a.access_token;
       let removeError = null;
       const finish = (value) => {
         if (removeError) {
@@ -17936,9 +17936,9 @@ var GoTrueClient = class _GoTrueClient {
         }
       }
       if (accessToken) {
-        const { error: error2 } = await this.admin.signOut(accessToken, scope);
-        if (error2 && !(isAuthApiError(error2) && (error2.status === 404 || error2.status === 401 || error2.status === 403) || isAuthSessionMissingError(error2))) {
-          return finish(this._returnResult({ error: error2 }));
+        const { error } = await this.admin.signOut(accessToken, scope);
+        if (error && !(isAuthApiError(error) && (error.status === 404 || error.status === 401 || error.status === 403) || isAuthSessionMissingError(error))) {
+          return finish(this._returnResult({ error }));
         }
       }
       if (scope === "global") {
@@ -18152,9 +18152,9 @@ var GoTrueClient = class _GoTrueClient {
     return await this._useSession(async (result) => {
       var _a, _b;
       try {
-        const { data: { session }, error: error2 } = result;
-        if (error2)
-          throw error2;
+        const { data: { session }, error } = result;
+        if (error)
+          throw error;
         await ((_a = this.stateChangeEmitters.get(id)) === null || _a === void 0 ? void 0 : _a.callback("INITIAL_SESSION", session));
         this._debug("INITIAL_SESSION", "callback id", id, "session", session);
       } catch (err) {
@@ -18260,12 +18260,12 @@ var GoTrueClient = class _GoTrueClient {
         headers: this.headers,
         redirectTo: this._maybeAppendFlowIdToRedirect(options.redirectTo, flowId)
       });
-    } catch (error2) {
+    } catch (error) {
       await removePKCEVerifier(this.storage, this.storageKey, flowId);
-      if (isAuthError(error2)) {
-        return this._returnResult({ data: null, error: error2 });
+      if (isAuthError(error)) {
+        return this._returnResult({ data: null, error });
       }
-      throw error2;
+      throw error;
     }
   }
   /**
@@ -18311,15 +18311,15 @@ var GoTrueClient = class _GoTrueClient {
   async getUserIdentities() {
     var _a;
     try {
-      const { data: data2, error: error2 } = await this.getUser();
-      if (error2)
-        throw error2;
-      return this._returnResult({ data: { identities: (_a = data2.user.identities) !== null && _a !== void 0 ? _a : [] }, error: null });
-    } catch (error2) {
-      if (isAuthError(error2)) {
-        return this._returnResult({ data: null, error: error2 });
+      const { data, error } = await this.getUser();
+      if (error)
+        throw error;
+      return this._returnResult({ data: { identities: (_a = data.user.identities) !== null && _a !== void 0 ? _a : [] }, error: null });
+    } catch (error) {
+      if (isAuthError(error)) {
+        return this._returnResult({ data: null, error });
       }
-      throw error2;
+      throw error;
     }
   }
   /**  *
@@ -18360,11 +18360,11 @@ var GoTrueClient = class _GoTrueClient {
     var _a;
     let flowId = null;
     try {
-      const { data: data2, error: error2 } = await this._useSession(async (result) => {
+      const { data, error } = await this._useSession(async (result) => {
         var _a2, _b, _c, _d, _f;
-        const { data: data3, error: error3 } = result;
-        if (error3)
-          throw error3;
+        const { data: data2, error: error2 } = result;
+        if (error2)
+          throw error2;
         const { url, flowId: urlFlowId } = await this._getUrlForProvider(`${this.url}/user/identities/authorize`, credentials.provider, {
           redirectTo: (_a2 = credentials.options) === null || _a2 === void 0 ? void 0 : _a2.redirectTo,
           scopes: (_b = credentials.options) === null || _b === void 0 ? void 0 : _b.scopes,
@@ -18374,26 +18374,26 @@ var GoTrueClient = class _GoTrueClient {
         flowId = urlFlowId;
         return await _request(this.fetch, "GET", url, {
           headers: this.headers,
-          jwt: (_f = (_d = data3.session) === null || _d === void 0 ? void 0 : _d.access_token) !== null && _f !== void 0 ? _f : void 0
+          jwt: (_f = (_d = data2.session) === null || _d === void 0 ? void 0 : _d.access_token) !== null && _f !== void 0 ? _f : void 0
         });
       });
-      if (error2)
-        throw error2;
+      if (error)
+        throw error;
       if (isBrowser() && !((_a = credentials.options) === null || _a === void 0 ? void 0 : _a.skipBrowserRedirect)) {
-        window.location.assign(data2 === null || data2 === void 0 ? void 0 : data2.url);
+        window.location.assign(data === null || data === void 0 ? void 0 : data.url);
       }
       return this._returnResult({
-        data: { provider: credentials.provider, url: data2 === null || data2 === void 0 ? void 0 : data2.url, flowId },
+        data: { provider: credentials.provider, url: data === null || data === void 0 ? void 0 : data.url, flowId },
         error: null
       });
-    } catch (error2) {
-      if (isAuthError(error2)) {
+    } catch (error) {
+      if (isAuthError(error)) {
         return this._returnResult({
           data: { provider: credentials.provider, url: null, flowId },
-          error: error2
+          error
         });
       }
-      throw error2;
+      throw error;
     }
   }
   async linkIdentityIdToken(credentials) {
@@ -18417,26 +18417,26 @@ var GoTrueClient = class _GoTrueClient {
           },
           xform: _sessionResponse
         });
-        const { data: data2, error: error2 } = res;
-        if (error2) {
-          return this._returnResult({ data: { user: null, session: null }, error: error2 });
-        } else if (!data2 || !data2.session || !data2.user) {
+        const { data, error } = res;
+        if (error) {
+          return this._returnResult({ data: { user: null, session: null }, error });
+        } else if (!data || !data.session || !data.user) {
           return this._returnResult({
             data: { user: null, session: null },
             error: new AuthInvalidTokenResponseError()
           });
         }
-        if (data2.session) {
-          await this._saveSession(data2.session);
-          await this._notifyAllSubscribers("USER_UPDATED", data2.session);
+        if (data.session) {
+          await this._saveSession(data.session);
+          await this._notifyAllSubscribers("USER_UPDATED", data.session);
         }
-        return this._returnResult({ data: data2, error: error2 });
-      } catch (error2) {
+        return this._returnResult({ data, error });
+      } catch (error) {
         await removePKCEVerifier(this.storage, this.storageKey, null);
-        if (isAuthError(error2)) {
-          return this._returnResult({ data: { user: null, session: null }, error: error2 });
+        if (isAuthError(error)) {
+          return this._returnResult({ data: { user: null, session: null }, error });
         }
-        throw error2;
+        throw error;
       }
     });
   }
@@ -18469,20 +18469,20 @@ var GoTrueClient = class _GoTrueClient {
     try {
       return await this._useSession(async (result) => {
         var _a, _b;
-        const { data: data2, error: error2 } = result;
-        if (error2) {
-          throw error2;
+        const { data, error } = result;
+        if (error) {
+          throw error;
         }
         return await _request(this.fetch, "DELETE", `${this.url}/user/identities/${identity.identity_id}`, {
           headers: this.headers,
-          jwt: (_b = (_a = data2.session) === null || _a === void 0 ? void 0 : _a.access_token) !== null && _b !== void 0 ? _b : void 0
+          jwt: (_b = (_a = data.session) === null || _a === void 0 ? void 0 : _a.access_token) !== null && _b !== void 0 ? _b : void 0
         });
       });
-    } catch (error2) {
-      if (isAuthError(error2)) {
-        return this._returnResult({ data: null, error: error2 });
+    } catch (error) {
+      if (isAuthError(error)) {
+        return this._returnResult({ data: null, error });
       }
-      throw error2;
+      throw error;
     }
   }
   /**
@@ -18504,17 +18504,17 @@ var GoTrueClient = class _GoTrueClient {
           headers: this.headers,
           xform: _sessionResponse
         });
-      }, (attempt, error2) => {
+      }, (attempt, error) => {
         const nextBackOffInterval = 200 * Math.pow(2, attempt);
-        return error2 && isAuthRetryableFetchError(error2) && // retryable only if the request can be sent before the backoff overflows the tick duration
+        return error && isAuthRetryableFetchError(error) && // retryable only if the request can be sent before the backoff overflows the tick duration
         Date.now() + nextBackOffInterval - startedAt < AUTO_REFRESH_TICK_DURATION_MS;
       });
-    } catch (error2) {
-      this._debug(debugName, "error", error2);
-      if (isAuthError(error2)) {
-        return this._returnResult({ data: { session: null, user: null }, error: error2 });
+    } catch (error) {
+      this._debug(debugName, "error", error);
+      if (isAuthError(error)) {
+        return this._returnResult({ data: { session: null, user: null }, error });
       }
-      throw error2;
+      throw error;
     } finally {
       this._debug(debugName, "end");
     }
@@ -18576,20 +18576,20 @@ var GoTrueClient = class _GoTrueClient {
       this._debug(debugName, `session has${expiresWithMargin ? "" : " not"} expired with margin of ${EXPIRY_MARGIN_MS}s`);
       if (expiresWithMargin) {
         if (this.autoRefreshToken && currentSession.refresh_token) {
-          const { error: error2 } = await this._callRefreshToken(currentSession.refresh_token);
-          if (error2) {
-            if (isAuthRefreshDiscardedError(error2)) {
-              this._debug(debugName, "refresh discarded by commit guard", error2);
+          const { error } = await this._callRefreshToken(currentSession.refresh_token);
+          if (error) {
+            if (isAuthRefreshDiscardedError(error)) {
+              this._debug(debugName, "refresh discarded by commit guard", error);
             } else {
-              this._debug(debugName, "refresh failed", error2);
+              this._debug(debugName, "refresh failed", error);
             }
           }
         }
       } else if (currentSession.user && currentSession.user.__isUserNotAvailableProxy === true) {
         try {
-          const { data: data2, error: userError } = await this._getUser(currentSession.access_token);
-          if (!userError && (data2 === null || data2 === void 0 ? void 0 : data2.user)) {
-            currentSession.user = data2.user;
+          const { data, error: userError } = await this._getUser(currentSession.access_token);
+          if (!userError && (data === null || data === void 0 ? void 0 : data.user)) {
+            currentSession.user = data.user;
             await this._saveSession(currentSession);
             await this._notifyAllSubscribers("SIGNED_IN", currentSession);
           } else {
@@ -18633,10 +18633,10 @@ var GoTrueClient = class _GoTrueClient {
       this.refreshingDeferred.promise.then(void 0, () => {
       });
       const storedAtStart = await getItemAsync(this.storage, this.storageKey);
-      const { data: data2, error: error2 } = await this._refreshAccessToken(refreshToken);
-      if (error2)
-        throw error2;
-      if (!data2.session)
+      const { data, error } = await this._refreshAccessToken(refreshToken);
+      if (error)
+        throw error;
+      if (!data.session)
         throw new AuthSessionMissingError();
       const storedAfter = await getItemAsync(this.storage, this.storageKey);
       const storageChangedUnderUs = storedAtStart !== null && (storedAfter === null || storedAfter.refresh_token !== storedAtStart.refresh_token);
@@ -18655,7 +18655,7 @@ var GoTrueClient = class _GoTrueClient {
         return discarded;
       }
       const epochBeforeSave = this._sessionRemovalEpoch;
-      await this._saveSession(data2.session);
+      await this._saveSession(data.session);
       if (this._sessionRemovalEpoch !== epochBeforeSave) {
         this._debug(debugName, "commit guard (post-save): _removeSession ran during _saveSession, undoing write");
         await removeItemAsync(this.storage, this.storageKey);
@@ -18669,16 +18669,16 @@ var GoTrueClient = class _GoTrueClient {
         this.refreshingDeferred.resolve(discarded);
         return discarded;
       }
-      await this._notifyAllSubscribers("TOKEN_REFRESHED", data2.session);
-      const result = { data: data2.session, error: null };
+      await this._notifyAllSubscribers("TOKEN_REFRESHED", data.session);
+      const result = { data: data.session, error: null };
       this.lastRefreshFailure = null;
       this.refreshingDeferred.resolve(result);
       return result;
-    } catch (error2) {
-      this._debug(debugName, "error", error2);
-      if (isAuthError(error2)) {
-        const result = { data: null, error: error2 };
-        if (!isAuthRetryableFetchError(error2)) {
+    } catch (error) {
+      this._debug(debugName, "error", error);
+      if (isAuthError(error)) {
+        const result = { data: null, error };
+        if (!isAuthRetryableFetchError(error)) {
           const storedNow = await getItemAsync(this.storage, this.storageKey);
           const accessTokenStillValid = !!((storedNow === null || storedNow === void 0 ? void 0 : storedNow.expires_at) && storedNow.expires_at * 1e3 > Date.now());
           if (accessTokenStillValid) {
@@ -18695,8 +18695,8 @@ var GoTrueClient = class _GoTrueClient {
         (_a = this.refreshingDeferred) === null || _a === void 0 ? void 0 : _a.resolve(result);
         return result;
       }
-      (_b = this.refreshingDeferred) === null || _b === void 0 ? void 0 : _b.reject(error2);
-      throw error2;
+      (_b = this.refreshingDeferred) === null || _b === void 0 ? void 0 : _b.reject(error);
+      throw error;
     } finally {
       this.refreshingDeferred = null;
       this._debug(debugName, "end");
@@ -19032,14 +19032,14 @@ var GoTrueClient = class _GoTrueClient {
       this.visibilityChangedCallback = async () => {
         try {
           await this._onVisibilityChanged(false);
-        } catch (error2) {
-          this._debug("#visibilityChangedCallback", "error", error2);
+        } catch (error) {
+          this._debug("#visibilityChangedCallback", "error", error);
         }
       };
       window === null || window === void 0 ? void 0 : window.addEventListener("visibilitychange", this.visibilityChangedCallback);
       await this._onVisibilityChanged(true);
-    } catch (error2) {
-      console.error("_handleVisibilityChange", error2);
+    } catch (error) {
+      console.error("_handleVisibilityChange", error);
     }
   }
   /**
@@ -19148,11 +19148,11 @@ var GoTrueClient = class _GoTrueClient {
           jwt: (_a = sessionData === null || sessionData === void 0 ? void 0 : sessionData.session) === null || _a === void 0 ? void 0 : _a.access_token
         });
       });
-    } catch (error2) {
-      if (isAuthError(error2)) {
-        return this._returnResult({ data: null, error: error2 });
+    } catch (error) {
+      if (isAuthError(error)) {
+        return this._returnResult({ data: null, error });
       }
-      throw error2;
+      throw error;
     }
   }
   async _enroll(params) {
@@ -19164,24 +19164,24 @@ var GoTrueClient = class _GoTrueClient {
           return this._returnResult({ data: null, error: sessionError });
         }
         const body = Object.assign({ friendly_name: params.friendlyName, factor_type: params.factorType }, params.factorType === "phone" ? { phone: params.phone } : params.factorType === "totp" ? { issuer: params.issuer } : {});
-        const { data: data2, error: error2 } = await _request(this.fetch, "POST", `${this.url}/factors`, {
+        const { data, error } = await _request(this.fetch, "POST", `${this.url}/factors`, {
           body,
           headers: this.headers,
           jwt: (_a = sessionData === null || sessionData === void 0 ? void 0 : sessionData.session) === null || _a === void 0 ? void 0 : _a.access_token
         });
-        if (error2) {
-          return this._returnResult({ data: null, error: error2 });
+        if (error) {
+          return this._returnResult({ data: null, error });
         }
-        if (params.factorType === "totp" && data2.type === "totp" && ((_b = data2 === null || data2 === void 0 ? void 0 : data2.totp) === null || _b === void 0 ? void 0 : _b.qr_code)) {
-          data2.totp.qr_code = `data:image/svg+xml;utf-8,${data2.totp.qr_code}`;
+        if (params.factorType === "totp" && data.type === "totp" && ((_b = data === null || data === void 0 ? void 0 : data.totp) === null || _b === void 0 ? void 0 : _b.qr_code)) {
+          data.totp.qr_code = `data:image/svg+xml;utf-8,${data.totp.qr_code}`;
         }
-        return this._returnResult({ data: data2, error: null });
+        return this._returnResult({ data, error: null });
       });
-    } catch (error2) {
-      if (isAuthError(error2)) {
-        return this._returnResult({ data: null, error: error2 });
+    } catch (error) {
+      if (isAuthError(error)) {
+        return this._returnResult({ data: null, error });
       }
-      throw error2;
+      throw error;
     }
   }
   async _verify(params) {
@@ -19196,23 +19196,23 @@ var GoTrueClient = class _GoTrueClient {
           const body = Object.assign({ challenge_id: params.challengeId }, "webauthn" in params ? {
             webauthn: Object.assign(Object.assign({}, params.webauthn), { credential_response: params.webauthn.type === "create" ? serializeCredentialCreationResponse(params.webauthn.credential_response) : serializeCredentialRequestResponse(params.webauthn.credential_response) })
           } : { code: params.code });
-          const { data: data2, error: error2 } = await _request(this.fetch, "POST", `${this.url}/factors/${params.factorId}/verify`, {
+          const { data, error } = await _request(this.fetch, "POST", `${this.url}/factors/${params.factorId}/verify`, {
             body,
             headers: this.headers,
             jwt: (_a = sessionData === null || sessionData === void 0 ? void 0 : sessionData.session) === null || _a === void 0 ? void 0 : _a.access_token
           });
-          if (error2) {
-            return this._returnResult({ data: null, error: error2 });
+          if (error) {
+            return this._returnResult({ data: null, error });
           }
-          await this._saveSession(Object.assign({ expires_at: Math.round(Date.now() / 1e3) + data2.expires_in }, data2));
-          await this._notifyAllSubscribers("MFA_CHALLENGE_VERIFIED", data2);
-          return this._returnResult({ data: data2, error: error2 });
+          await this._saveSession(Object.assign({ expires_at: Math.round(Date.now() / 1e3) + data.expires_in }, data));
+          await this._notifyAllSubscribers("MFA_CHALLENGE_VERIFIED", data);
+          return this._returnResult({ data, error });
         });
-      } catch (error2) {
-        if (isAuthError(error2)) {
-          return this._returnResult({ data: null, error: error2 });
+      } catch (error) {
+        if (isAuthError(error)) {
+          return this._returnResult({ data: null, error });
         }
-        throw error2;
+        throw error;
       }
     };
     if (this.lock != null) {
@@ -19237,28 +19237,28 @@ var GoTrueClient = class _GoTrueClient {
           if (response.error) {
             return response;
           }
-          const { data: data2 } = response;
-          if (data2.type !== "webauthn") {
-            return { data: data2, error: null };
+          const { data } = response;
+          if (data.type !== "webauthn") {
+            return { data, error: null };
           }
-          switch (data2.webauthn.type) {
+          switch (data.webauthn.type) {
             case "create":
               return {
-                data: Object.assign(Object.assign({}, data2), { webauthn: Object.assign(Object.assign({}, data2.webauthn), { credential_options: Object.assign(Object.assign({}, data2.webauthn.credential_options), { publicKey: deserializeCredentialCreationOptions(data2.webauthn.credential_options.publicKey) }) }) }),
+                data: Object.assign(Object.assign({}, data), { webauthn: Object.assign(Object.assign({}, data.webauthn), { credential_options: Object.assign(Object.assign({}, data.webauthn.credential_options), { publicKey: deserializeCredentialCreationOptions(data.webauthn.credential_options.publicKey) }) }) }),
                 error: null
               };
             case "request":
               return {
-                data: Object.assign(Object.assign({}, data2), { webauthn: Object.assign(Object.assign({}, data2.webauthn), { credential_options: Object.assign(Object.assign({}, data2.webauthn.credential_options), { publicKey: deserializeCredentialRequestOptions(data2.webauthn.credential_options.publicKey) }) }) }),
+                data: Object.assign(Object.assign({}, data), { webauthn: Object.assign(Object.assign({}, data.webauthn), { credential_options: Object.assign(Object.assign({}, data.webauthn.credential_options), { publicKey: deserializeCredentialRequestOptions(data.webauthn.credential_options.publicKey) }) }) }),
                 error: null
               };
           }
         });
-      } catch (error2) {
-        if (isAuthError(error2)) {
-          return this._returnResult({ data: null, error: error2 });
+      } catch (error) {
+        if (isAuthError(error)) {
+          return this._returnResult({ data: null, error });
         }
-        throw error2;
+        throw error;
       }
     };
     if (this.lock != null) {
@@ -19291,7 +19291,7 @@ var GoTrueClient = class _GoTrueClient {
     if (userError) {
       return { data: null, error: userError };
     }
-    const data2 = {
+    const data = {
       all: [],
       phone: [],
       totp: [],
@@ -19299,14 +19299,14 @@ var GoTrueClient = class _GoTrueClient {
       recovery_code: []
     };
     for (const factor of (_a = user === null || user === void 0 ? void 0 : user.factors) !== null && _a !== void 0 ? _a : []) {
-      data2.all.push(factor);
-      if (factor.status === "verified" && factor.factor_type in data2 && Array.isArray(data2[factor.factor_type])) {
+      data.all.push(factor);
+      if (factor.status === "verified" && factor.factor_type in data && Array.isArray(data[factor.factor_type])) {
         ;
-        data2[factor.factor_type].push(factor);
+        data[factor.factor_type].push(factor);
       }
     }
     return {
-      data: data2,
+      data,
       error: null
     };
   }
@@ -19333,11 +19333,11 @@ var GoTrueClient = class _GoTrueClient {
         }
         const currentAuthenticationMethods2 = payload2.amr || [];
         return { data: { currentLevel: currentLevel2, nextLevel: nextLevel2, currentAuthenticationMethods: currentAuthenticationMethods2 }, error: null };
-      } catch (error2) {
-        if (isAuthError(error2)) {
-          return this._returnResult({ data: null, error: error2 });
+      } catch (error) {
+        if (isAuthError(error)) {
+          return this._returnResult({ data: null, error });
         }
-        throw error2;
+        throw error;
       }
     }
     const { data: { session }, error: sessionError } = await this.getSession();
@@ -19375,20 +19375,20 @@ var GoTrueClient = class _GoTrueClient {
         if (sessionError) {
           return this._returnResult({ data: null, error: sessionError });
         }
-        const { data: data2, error: error2 } = await _request(this.fetch, "GET", `${this.url}/factors/recovery-codes`, {
+        const { data, error } = await _request(this.fetch, "GET", `${this.url}/factors/recovery-codes`, {
           headers: this.headers,
           jwt: (_a = sessionData === null || sessionData === void 0 ? void 0 : sessionData.session) === null || _a === void 0 ? void 0 : _a.access_token
         });
-        if (error2) {
-          return this._returnResult({ data: null, error: error2 });
+        if (error) {
+          return this._returnResult({ data: null, error });
         }
-        return this._returnResult({ data: data2, error: null });
+        return this._returnResult({ data, error: null });
       });
-    } catch (error2) {
-      if (isAuthError(error2)) {
-        return this._returnResult({ data: null, error: error2 });
+    } catch (error) {
+      if (isAuthError(error)) {
+        return this._returnResult({ data: null, error });
       }
-      throw error2;
+      throw error;
     }
   }
   /**
@@ -19403,22 +19403,22 @@ var GoTrueClient = class _GoTrueClient {
         if (sessionError) {
           return this._returnResult({ data: null, error: sessionError });
         }
-        const { data: data2, error: error2 } = await _request(this.fetch, "POST", `${this.url}/factors/recovery-codes`, {
+        const { data, error } = await _request(this.fetch, "POST", `${this.url}/factors/recovery-codes`, {
           // The body is optional server-side; only send one when a name was given.
           body: (params === null || params === void 0 ? void 0 : params.friendlyName) ? { friendly_name: params.friendlyName } : void 0,
           headers: this.headers,
           jwt: (_a = sessionData === null || sessionData === void 0 ? void 0 : sessionData.session) === null || _a === void 0 ? void 0 : _a.access_token
         });
-        if (error2) {
-          return this._returnResult({ data: null, error: error2 });
+        if (error) {
+          return this._returnResult({ data: null, error });
         }
-        return this._returnResult({ data: data2, error: null });
+        return this._returnResult({ data, error: null });
       });
-    } catch (error2) {
-      if (isAuthError(error2)) {
-        return this._returnResult({ data: null, error: error2 });
+    } catch (error) {
+      if (isAuthError(error)) {
+        return this._returnResult({ data: null, error });
       }
-      throw error2;
+      throw error;
     }
   }
   /**
@@ -19434,24 +19434,24 @@ var GoTrueClient = class _GoTrueClient {
           if (sessionError) {
             return this._returnResult({ data: null, error: sessionError });
           }
-          const { data: data2, error: error2 } = await _request(this.fetch, "POST", `${this.url}/factors/recovery-codes/verify`, {
+          const { data, error } = await _request(this.fetch, "POST", `${this.url}/factors/recovery-codes/verify`, {
             body: { code: params.code },
             headers: this.headers,
             jwt: (_a = sessionData === null || sessionData === void 0 ? void 0 : sessionData.session) === null || _a === void 0 ? void 0 : _a.access_token
           });
-          if (error2) {
-            return this._returnResult({ data: null, error: error2 });
+          if (error) {
+            return this._returnResult({ data: null, error });
           }
-          const session = Object.assign({ expires_at: expiresAt(data2.expires_in) }, data2);
+          const session = Object.assign({ expires_at: expiresAt(data.expires_in) }, data);
           await this._saveSession(session);
           await this._notifyAllSubscribers("MFA_CHALLENGE_VERIFIED", session);
-          return this._returnResult({ data: data2, error: null });
+          return this._returnResult({ data, error: null });
         });
-      } catch (error2) {
-        if (isAuthError(error2)) {
-          return this._returnResult({ data: null, error: error2 });
+      } catch (error) {
+        if (isAuthError(error)) {
+          return this._returnResult({ data: null, error });
         }
-        throw error2;
+        throw error;
       }
     };
     if (this.lock != null) {
@@ -19471,20 +19471,20 @@ var GoTrueClient = class _GoTrueClient {
         if (sessionError) {
           return this._returnResult({ data: null, error: sessionError });
         }
-        const { data: data2, error: error2 } = await _request(this.fetch, "POST", `${this.url}/factors/recovery-codes/regenerate`, {
+        const { data, error } = await _request(this.fetch, "POST", `${this.url}/factors/recovery-codes/regenerate`, {
           headers: this.headers,
           jwt: (_a = sessionData === null || sessionData === void 0 ? void 0 : sessionData.session) === null || _a === void 0 ? void 0 : _a.access_token
         });
-        if (error2) {
-          return this._returnResult({ data: null, error: error2 });
+        if (error) {
+          return this._returnResult({ data: null, error });
         }
-        return this._returnResult({ data: data2, error: null });
+        return this._returnResult({ data, error: null });
       });
-    } catch (error2) {
-      if (isAuthError(error2)) {
-        return this._returnResult({ data: null, error: error2 });
+    } catch (error) {
+      if (isAuthError(error)) {
+        return this._returnResult({ data: null, error });
       }
-      throw error2;
+      throw error;
     }
   }
   /**
@@ -19499,20 +19499,20 @@ var GoTrueClient = class _GoTrueClient {
         if (sessionError) {
           return this._returnResult({ data: null, error: sessionError });
         }
-        const { data: data2, error: error2 } = await _request(this.fetch, "DELETE", `${this.url}/factors/recovery-codes`, {
+        const { data, error } = await _request(this.fetch, "DELETE", `${this.url}/factors/recovery-codes`, {
           headers: this.headers,
           jwt: (_a = sessionData === null || sessionData === void 0 ? void 0 : sessionData.session) === null || _a === void 0 ? void 0 : _a.access_token
         });
-        if (error2) {
-          return this._returnResult({ data: null, error: error2 });
+        if (error) {
+          return this._returnResult({ data: null, error });
         }
-        return this._returnResult({ data: data2, error: null });
+        return this._returnResult({ data, error: null });
       });
-    } catch (error2) {
-      if (isAuthError(error2)) {
-        return this._returnResult({ data: null, error: error2 });
+    } catch (error) {
+      if (isAuthError(error)) {
+        return this._returnResult({ data: null, error });
       }
-      throw error2;
+      throw error;
     }
   }
   /**
@@ -19536,14 +19536,14 @@ var GoTrueClient = class _GoTrueClient {
         return await _request(this.fetch, "GET", `${this.url}/oauth/authorizations/${authorizationId}`, {
           headers: this.headers,
           jwt: session.access_token,
-          xform: (data2) => ({ data: data2, error: null })
+          xform: (data) => ({ data, error: null })
         });
       });
-    } catch (error2) {
-      if (isAuthError(error2)) {
-        return this._returnResult({ data: null, error: error2 });
+    } catch (error) {
+      if (isAuthError(error)) {
+        return this._returnResult({ data: null, error });
       }
-      throw error2;
+      throw error;
     }
   }
   /**
@@ -19564,7 +19564,7 @@ var GoTrueClient = class _GoTrueClient {
           headers: this.headers,
           jwt: session.access_token,
           body: { action: "approve" },
-          xform: (data2) => ({ data: data2, error: null })
+          xform: (data) => ({ data, error: null })
         });
         if (response.data && response.data.redirect_url) {
           if (isBrowser() && !(options === null || options === void 0 ? void 0 : options.skipBrowserRedirect)) {
@@ -19573,11 +19573,11 @@ var GoTrueClient = class _GoTrueClient {
         }
         return response;
       });
-    } catch (error2) {
-      if (isAuthError(error2)) {
-        return this._returnResult({ data: null, error: error2 });
+    } catch (error) {
+      if (isAuthError(error)) {
+        return this._returnResult({ data: null, error });
       }
-      throw error2;
+      throw error;
     }
   }
   /**
@@ -19598,7 +19598,7 @@ var GoTrueClient = class _GoTrueClient {
           headers: this.headers,
           jwt: session.access_token,
           body: { action: "deny" },
-          xform: (data2) => ({ data: data2, error: null })
+          xform: (data) => ({ data, error: null })
         });
         if (response.data && response.data.redirect_url) {
           if (isBrowser() && !(options === null || options === void 0 ? void 0 : options.skipBrowserRedirect)) {
@@ -19607,11 +19607,11 @@ var GoTrueClient = class _GoTrueClient {
         }
         return response;
       });
-    } catch (error2) {
-      if (isAuthError(error2)) {
-        return this._returnResult({ data: null, error: error2 });
+    } catch (error) {
+      if (isAuthError(error)) {
+        return this._returnResult({ data: null, error });
       }
-      throw error2;
+      throw error;
     }
   }
   /**
@@ -19631,14 +19631,14 @@ var GoTrueClient = class _GoTrueClient {
         return await _request(this.fetch, "GET", `${this.url}/user/oauth/grants`, {
           headers: this.headers,
           jwt: session.access_token,
-          xform: (data2) => ({ data: data2, error: null })
+          xform: (data) => ({ data, error: null })
         });
       });
-    } catch (error2) {
-      if (isAuthError(error2)) {
-        return this._returnResult({ data: null, error: error2 });
+    } catch (error) {
+      if (isAuthError(error)) {
+        return this._returnResult({ data: null, error });
       }
-      throw error2;
+      throw error;
     }
   }
   /**
@@ -19663,11 +19663,11 @@ var GoTrueClient = class _GoTrueClient {
         });
         return { data: {}, error: null };
       });
-    } catch (error2) {
-      if (isAuthError(error2)) {
-        return this._returnResult({ data: null, error: error2 });
+    } catch (error) {
+      if (isAuthError(error)) {
+        return this._returnResult({ data: null, error });
       }
-      throw error2;
+      throw error;
     }
   }
   async fetchJwk(kid, jwks = { keys: [] }) {
@@ -19680,18 +19680,18 @@ var GoTrueClient = class _GoTrueClient {
     if (jwk && this.jwks_cached_at + JWKS_TTL > now) {
       return jwk;
     }
-    const { data: data2, error: error2 } = await _request(this.fetch, "GET", `${this.url}/.well-known/jwks.json`, {
+    const { data, error } = await _request(this.fetch, "GET", `${this.url}/.well-known/jwks.json`, {
       headers: this.headers
     });
-    if (error2) {
-      throw error2;
+    if (error) {
+      throw error;
     }
-    if (!data2.keys || data2.keys.length === 0) {
+    if (!data.keys || data.keys.length === 0) {
       return null;
     }
-    this.jwks = data2;
+    this.jwks = data;
     this.jwks_cached_at = now;
-    jwk = data2.keys.find((key) => key.kid === kid);
+    jwk = data.keys.find((key) => key.kid === kid);
     if (!jwk) {
       return null;
     }
@@ -19766,11 +19766,11 @@ var GoTrueClient = class _GoTrueClient {
     try {
       let token = jwt;
       if (!token) {
-        const { data: data2, error: error2 } = await this.getSession();
-        if (error2 || !data2.session) {
-          return this._returnResult({ data: null, error: error2 });
+        const { data, error } = await this.getSession();
+        if (error || !data.session) {
+          return this._returnResult({ data: null, error });
         }
-        token = data2.session.access_token;
+        token = data.session.access_token;
       }
       const { header, payload, signature, raw: { header: rawHeader, payload: rawPayload } } = decodeJWT(token);
       if (!(options === null || options === void 0 ? void 0 : options.allowExpired)) {
@@ -19782,9 +19782,9 @@ var GoTrueClient = class _GoTrueClient {
       }
       const signingKey = !header.alg || header.alg.startsWith("HS") || !header.kid || !("crypto" in globalThis && "subtle" in globalThis.crypto) ? null : await this.fetchJwk(header.kid, (options === null || options === void 0 ? void 0 : options.keys) ? { keys: options.keys } : options === null || options === void 0 ? void 0 : options.jwks);
       if (!signingKey) {
-        const { error: error2 } = await this.getUser(token);
-        if (error2) {
-          throw error2;
+        const { error } = await this.getUser(token);
+        if (error) {
+          throw error;
         }
         return {
           data: {
@@ -19811,11 +19811,11 @@ var GoTrueClient = class _GoTrueClient {
         },
         error: null
       };
-    } catch (error2) {
-      if (isAuthError(error2)) {
-        return this._returnResult({ data: null, error: error2 });
+    } catch (error) {
+      if (isAuthError(error)) {
+        return this._returnResult({ data: null, error });
       }
-      throw error2;
+      throw error;
     }
   }
   // --- Passkey Methods ---
@@ -19885,11 +19885,11 @@ var GoTrueClient = class _GoTrueClient {
         challengeId: options.challenge_id,
         credential: serialized
       });
-    } catch (error2) {
-      if (isAuthError(error2)) {
-        return this._returnResult({ data: null, error: error2 });
+    } catch (error) {
+      if (isAuthError(error)) {
+        return this._returnResult({ data: null, error });
       }
-      throw error2;
+      throw error;
     }
   }
   /**
@@ -19932,11 +19932,11 @@ var GoTrueClient = class _GoTrueClient {
         challengeId: options.challenge_id,
         credential: serialized
       });
-    } catch (error2) {
-      if (isAuthError(error2)) {
-        return this._returnResult({ data: null, error: error2 });
+    } catch (error) {
+      if (isAuthError(error)) {
+        return this._returnResult({ data: null, error });
       }
-      throw error2;
+      throw error;
     }
   }
   /**
@@ -19953,21 +19953,21 @@ var GoTrueClient = class _GoTrueClient {
         if (!session) {
           return this._returnResult({ data: null, error: new AuthSessionMissingError() });
         }
-        const { data: data2, error: error2 } = await _request(this.fetch, "POST", `${this.url}/passkeys/registration/options`, {
+        const { data, error } = await _request(this.fetch, "POST", `${this.url}/passkeys/registration/options`, {
           headers: this.headers,
           jwt: session.access_token,
           body: {}
         });
-        if (error2) {
-          return this._returnResult({ data: null, error: error2 });
+        if (error) {
+          return this._returnResult({ data: null, error });
         }
-        return this._returnResult({ data: data2, error: null });
+        return this._returnResult({ data, error: null });
       });
-    } catch (error2) {
-      if (isAuthError(error2)) {
-        return this._returnResult({ data: null, error: error2 });
+    } catch (error) {
+      if (isAuthError(error)) {
+        return this._returnResult({ data: null, error });
       }
-      throw error2;
+      throw error;
     }
   }
   /**
@@ -19984,7 +19984,7 @@ var GoTrueClient = class _GoTrueClient {
         if (!session) {
           return this._returnResult({ data: null, error: new AuthSessionMissingError() });
         }
-        const { data: data2, error: error2 } = await _request(this.fetch, "POST", `${this.url}/passkeys/registration/verify`, {
+        const { data, error } = await _request(this.fetch, "POST", `${this.url}/passkeys/registration/verify`, {
           headers: this.headers,
           jwt: session.access_token,
           body: {
@@ -19992,16 +19992,16 @@ var GoTrueClient = class _GoTrueClient {
             credential: params.credential
           }
         });
-        if (error2) {
-          return this._returnResult({ data: null, error: error2 });
+        if (error) {
+          return this._returnResult({ data: null, error });
         }
-        return this._returnResult({ data: data2, error: null });
+        return this._returnResult({ data, error: null });
       });
-    } catch (error2) {
-      if (isAuthError(error2)) {
-        return this._returnResult({ data: null, error: error2 });
+    } catch (error) {
+      if (isAuthError(error)) {
+        return this._returnResult({ data: null, error });
       }
-      throw error2;
+      throw error;
     }
   }
   /**
@@ -20011,21 +20011,21 @@ var GoTrueClient = class _GoTrueClient {
   async _startPasskeyAuthentication(params) {
     var _a;
     try {
-      const { data: data2, error: error2 } = await _request(this.fetch, "POST", `${this.url}/passkeys/authentication/options`, {
+      const { data, error } = await _request(this.fetch, "POST", `${this.url}/passkeys/authentication/options`, {
         headers: this.headers,
         body: {
           gotrue_meta_security: { captcha_token: (_a = params === null || params === void 0 ? void 0 : params.options) === null || _a === void 0 ? void 0 : _a.captchaToken }
         }
       });
-      if (error2) {
-        return this._returnResult({ data: null, error: error2 });
+      if (error) {
+        return this._returnResult({ data: null, error });
       }
-      return this._returnResult({ data: data2, error: null });
-    } catch (error2) {
-      if (isAuthError(error2)) {
-        return this._returnResult({ data: null, error: error2 });
+      return this._returnResult({ data, error: null });
+    } catch (error) {
+      if (isAuthError(error)) {
+        return this._returnResult({ data: null, error });
       }
-      throw error2;
+      throw error;
     }
   }
   /**
@@ -20034,7 +20034,7 @@ var GoTrueClient = class _GoTrueClient {
    */
   async _verifyPasskeyAuthentication(params) {
     try {
-      const { data: data2, error: error2 } = await _request(this.fetch, "POST", `${this.url}/passkeys/authentication/verify`, {
+      const { data, error } = await _request(this.fetch, "POST", `${this.url}/passkeys/authentication/verify`, {
         headers: this.headers,
         body: {
           challenge_id: params.challengeId,
@@ -20042,19 +20042,19 @@ var GoTrueClient = class _GoTrueClient {
         },
         xform: _sessionResponse
       });
-      if (error2) {
-        return this._returnResult({ data: null, error: error2 });
+      if (error) {
+        return this._returnResult({ data: null, error });
       }
-      if (data2.session) {
-        await this._saveSession(data2.session);
-        await this._notifyAllSubscribers("SIGNED_IN", data2.session);
+      if (data.session) {
+        await this._saveSession(data.session);
+        await this._notifyAllSubscribers("SIGNED_IN", data.session);
       }
-      return this._returnResult({ data: data2, error: null });
-    } catch (error2) {
-      if (isAuthError(error2)) {
-        return this._returnResult({ data: null, error: error2 });
+      return this._returnResult({ data, error: null });
+    } catch (error) {
+      if (isAuthError(error)) {
+        return this._returnResult({ data: null, error });
       }
-      throw error2;
+      throw error;
     }
   }
   /**
@@ -20070,21 +20070,21 @@ var GoTrueClient = class _GoTrueClient {
         if (!session) {
           return this._returnResult({ data: null, error: new AuthSessionMissingError() });
         }
-        const { data: data2, error: error2 } = await _request(this.fetch, "GET", `${this.url}/passkeys`, {
+        const { data, error } = await _request(this.fetch, "GET", `${this.url}/passkeys`, {
           headers: this.headers,
           jwt: session.access_token,
-          xform: (data3) => ({ data: data3, error: null })
+          xform: (data2) => ({ data: data2, error: null })
         });
-        if (error2) {
-          return this._returnResult({ data: null, error: error2 });
+        if (error) {
+          return this._returnResult({ data: null, error });
         }
-        return this._returnResult({ data: data2, error: null });
+        return this._returnResult({ data, error: null });
       });
-    } catch (error2) {
-      if (isAuthError(error2)) {
-        return this._returnResult({ data: null, error: error2 });
+    } catch (error) {
+      if (isAuthError(error)) {
+        return this._returnResult({ data: null, error });
       }
-      throw error2;
+      throw error;
     }
   }
   /**
@@ -20100,21 +20100,21 @@ var GoTrueClient = class _GoTrueClient {
         if (!session) {
           return this._returnResult({ data: null, error: new AuthSessionMissingError() });
         }
-        const { data: data2, error: error2 } = await _request(this.fetch, "PATCH", `${this.url}/passkeys/${params.passkeyId}`, {
+        const { data, error } = await _request(this.fetch, "PATCH", `${this.url}/passkeys/${params.passkeyId}`, {
           headers: this.headers,
           jwt: session.access_token,
           body: { friendly_name: params.friendlyName }
         });
-        if (error2) {
-          return this._returnResult({ data: null, error: error2 });
+        if (error) {
+          return this._returnResult({ data: null, error });
         }
-        return this._returnResult({ data: data2, error: null });
+        return this._returnResult({ data, error: null });
       });
-    } catch (error2) {
-      if (isAuthError(error2)) {
-        return this._returnResult({ data: null, error: error2 });
+    } catch (error) {
+      if (isAuthError(error)) {
+        return this._returnResult({ data: null, error });
       }
-      throw error2;
+      throw error;
     }
   }
   /**
@@ -20130,21 +20130,21 @@ var GoTrueClient = class _GoTrueClient {
         if (!session) {
           return this._returnResult({ data: null, error: new AuthSessionMissingError() });
         }
-        const { error: error2 } = await _request(this.fetch, "DELETE", `${this.url}/passkeys/${params.passkeyId}`, {
+        const { error } = await _request(this.fetch, "DELETE", `${this.url}/passkeys/${params.passkeyId}`, {
           headers: this.headers,
           jwt: session.access_token,
           noResolveJson: true
         });
-        if (error2) {
-          return this._returnResult({ data: null, error: error2 });
+        if (error) {
+          return this._returnResult({ data: null, error });
         }
         return this._returnResult({ data: null, error: null });
       });
-    } catch (error2) {
-      if (isAuthError(error2)) {
-        return this._returnResult({ data: null, error: error2 });
+    } catch (error) {
+      if (isAuthError(error)) {
+        return this._returnResult({ data: null, error });
       }
-      throw error2;
+      throw error;
     }
   }
 };
@@ -20210,7 +20210,7 @@ function shouldPropagateToTarget(targetUrl, targets) {
   if (targetUrl instanceof URL) url = targetUrl;
   else try {
     url = new URL(targetUrl);
-  } catch (error2) {
+  } catch (error) {
     return false;
   }
   for (const target of targets) try {
@@ -20221,7 +20221,7 @@ function shouldPropagateToTarget(targetUrl, targets) {
     } else if (typeof target === "function") {
       if (target(url)) return true;
     }
-  } catch (error2) {
+  } catch (error) {
     continue;
   }
   return false;
@@ -20241,7 +20241,7 @@ function getDefaultPropagationTargets(supabaseUrl) {
   try {
     const url = new URL(supabaseUrl);
     targets.push(url.hostname);
-  } catch (error2) {
+  } catch (error) {
   }
   targets.push("*.supabase.co", "*.supabase.in");
   targets.push("localhost", "127.0.0.1", "[::1]");
@@ -20845,8 +20845,8 @@ var SupabaseClient = class {
     var _this = this;
     var _data$session$access_, _data$session;
     if (_this.accessToken) return await _this.accessToken();
-    const { data: data2 } = await _this.auth.getSession();
-    return (_data$session$access_ = (_data$session = data2.session) === null || _data$session === void 0 ? void 0 : _data$session.access_token) !== null && _data$session$access_ !== void 0 ? _data$session$access_ : null;
+    const { data } = await _this.auth.getSession();
+    return (_data$session$access_ = (_data$session = data.session) === null || _data$session === void 0 ? void 0 : _data$session.access_token) !== null && _data$session$access_ !== void 0 ? _data$session$access_ : null;
   }
   async _getAccessToken() {
     var _this2 = this;
@@ -20944,324 +20944,229 @@ var supabase = createClient(
 
 // popup.js
 var $ = (id) => document.getElementById(id);
+var loginView = $("login-view");
+var connectedView = $("connected-view");
+var adminLoginView = $("admin-login-view");
+var adminView = $("admin-view");
 var currentUser = null;
-var tabsChannel = null;
-var loading = false;
-function setStatus(message, type = "") {
-  const status = $("status");
-  status.textContent = message;
-  status.className = `status ${type}`;
+var adminVerified = false;
+function showStatus(id, message, type = "") {
+  const element = $(id);
+  element.textContent = message;
+  element.className = `status ${type}`;
 }
-function showLogin() {
-  $("login-view").classList.remove("hidden");
-  $("dashboard-view").classList.add("hidden");
-  $("refresh-button").classList.add("hidden");
+function showView(view) {
+  [loginView, connectedView, adminLoginView, adminView].forEach((section) => section.classList.add("hidden"));
+  view.classList.remove("hidden");
 }
-function showDashboard() {
-  $("login-view").classList.add("hidden");
-  $("dashboard-view").classList.remove("hidden");
-  $("refresh-button").classList.remove("hidden");
-  $("account-email").textContent = currentUser.email || "Administrator";
+async function getDeviceId(userId) {
+  const key = `tab_manager_device_id_${userId}`;
+  const saved = await chrome.storage.local.get(key);
+  if (saved[key]) return saved[key];
+  const id = crypto.randomUUID();
+  await chrome.storage.local.set({ [key]: id });
+  return id;
 }
-function notifyWorker(type) {
-  return new Promise((resolve) => {
-    chrome.runtime.sendMessage(
-      { type },
-      (response) => {
-        if (chrome.runtime.lastError) {
-          resolve({
-            ok: false,
-            error: chrome.runtime.lastError.message
-          });
-          return;
-        }
-        resolve(response || { ok: false });
-      }
-    );
-  });
-}
-function createElement(tag, className, text) {
-  const element = document.createElement(tag);
-  if (className) {
-    element.className = className;
+async function registerThisDevice(user) {
+  const deviceId = await getDeviceId(user.id);
+  const { data: existing, error: lookupError } = await supabase.from("devices").select("id, revoked_at").eq("id", deviceId).maybeSingle();
+  if (lookupError) throw lookupError;
+  if (existing?.revoked_at) {
+    throw new Error("This browser has been revoked. Contact the account admin.");
   }
-  if (text !== void 0) {
-    element.textContent = text;
-  }
-  return element;
+  const { error } = await supabase.from("devices").upsert({
+    id: deviceId,
+    user_id: user.id,
+    device_name: `Chrome (${navigator.platform || "Desktop"})`,
+    last_seen_at: (/* @__PURE__ */ new Date()).toISOString()
+  }, { onConflict: "id" });
+  if (error) throw error;
+  return deviceId;
 }
-async function loadTabs() {
-  if (!currentUser || loading) return;
-  loading = true;
-  $("refresh-button").disabled = true;
+async function loadConnectedView(user) {
+  currentUser = user;
+  showView(connectedView);
+  $("account-email").textContent = user.email || "Signed in";
+  $("connection-label").textContent = "Registering this browser...";
+  showStatus("connection-status", "");
   try {
-    const { data: data2, error: error2 } = await supabase.from("tabs").select(`
-        id,
-        device_id,
-        browser_tab_id,
-        window_id,
-        url,
-        title,
-        updated_at
-      `).eq("user_id", currentUser.id).order("updated_at", {
-      ascending: false
-    }).limit(200);
-    if (error2) throw error2;
-    const tabs = data2 || [];
-    $("tab-count").textContent = tabs.length;
-    const container = $("tabs-list");
-    container.replaceChildren();
-    if (tabs.length === 0) {
-      container.append(
-        createElement(
-          "p",
-          "empty",
-          "No tracked tabs found."
-        )
-      );
-      return;
-    }
-    tabs.forEach((tab) => {
-      const card = createElement(
-        "article",
-        "tab-card"
-      );
-      const details = createElement(
-        "div",
-        "tab-details"
-      );
-      const title = createElement(
-        "strong",
-        "tab-title",
-        tab.title || "Untitled tab"
-      );
-      const url = createElement(
-        "a",
-        "tab-url",
-        tab.url || ""
-      );
-      url.href = tab.url;
-      url.target = "_blank";
-      url.rel = "noopener noreferrer";
-      const device = createElement(
-        "span",
-        "tab-meta",
-        `Device: ${tab.device_id.slice(0, 8)}`
-      );
-      const tabId = createElement(
-        "span",
-        "tab-meta",
-        `Tab ID: ${tab.browser_tab_id}`
-      );
-      details.append(
-        title,
-        url,
-        device,
-        tabId
-      );
-      const actions = createElement(
-        "div",
-        "tab-actions"
-      );
-      const closeButton = createElement(
-        "button",
-        "danger",
-        "Close"
-      );
-      const blockButton = createElement(
-        "button",
-        "secondary",
-        "Block"
-      );
-      closeButton.type = "button";
-      blockButton.type = "button";
-      closeButton.addEventListener("click", () => {
-        sendCommand(tab, "close", closeButton);
-      });
-      blockButton.addEventListener("click", () => {
-        sendCommand(tab, "block", blockButton);
-      });
-      actions.append(
-        closeButton,
-        blockButton
-      );
-      card.append(details, actions);
-      container.append(card);
-    });
-  } catch (error2) {
-    setStatus(
-      `Failed to load tabs: ${error2.message}`,
-      "error"
-    );
-  } finally {
-    loading = false;
-    $("refresh-button").disabled = false;
+    await registerThisDevice(user);
+    $("connection-label").textContent = "This browser is connected and syncing.";
+    chrome.runtime.sendMessage({ type: "TAB_MANAGER_SYNC_NOW" });
+  } catch (error) {
+    $("connection-label").textContent = "Connection needs attention.";
+    showStatus("connection-status", error.message, "error");
   }
 }
-async function sendCommand(tab, action, button) {
+$("login-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const button = $("login-button");
   button.disabled = true;
-  const originalText = button.textContent;
-  button.textContent = "Sending...";
+  button.textContent = "Connecting...";
+  showStatus("login-status", "");
   try {
-    const { error: error2 } = await supabase.from("commands").insert({
-      user_id: currentUser.id,
-      device_id: tab.device_id,
-      browser_tab_id: tab.browser_tab_id,
-      action
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: $("email").value.trim(),
+      password: $("password").value
     });
-    if (error2) throw error2;
-    setStatus(
-      `${action} command successfully queued.`,
-      "success"
-    );
-    notifyWorker("TAB_MANAGER_REFRESH_COMMANDS");
-  } catch (error2) {
-    setStatus(
-      `Command failed: ${error2.message}`,
-      "error"
-    );
+    if (error) throw error;
+    if (!data.user) throw new Error("Sign-in did not return a user.");
+    $("password").value = "";
+    await loadConnectedView(data.user);
+  } catch (error) {
+    showStatus("login-status", error.message, "error");
+  } finally {
     button.disabled = false;
-    button.textContent = originalText;
+    button.textContent = "Sign in and connect";
   }
-}
-async function subscribeToTabs() {
-  if (tabsChannel) {
-    await supabase.removeChannel(tabsChannel);
+});
+$("open-admin").addEventListener("click", () => {
+  $("admin-password").value = "";
+  showStatus("admin-login-status", "");
+  showView(adminLoginView);
+});
+$("cancel-admin").addEventListener("click", () => showView(connectedView));
+$("admin-login-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const button = $("admin-login-button");
+  button.disabled = true;
+  button.textContent = "Verifying...";
+  showStatus("admin-login-status", "");
+  try {
+    const { error: authError } = await supabase.auth.signInWithPassword({
+      email: currentUser.email,
+      password: $("admin-password").value
+    });
+    if (authError) throw authError;
+    const { data: isAdmin, error: roleError } = await supabase.rpc(
+      "is_tab_manager_admin"
+    );
+    if (roleError) throw roleError;
+    if (isAdmin !== true) {
+      throw new Error("This account has not been granted admin access.");
+    }
+    adminVerified = true;
+    $("admin-password").value = "";
+    showView(adminView);
+    await refreshAdminDashboard();
+  } catch (error) {
+    showStatus("admin-login-status", error.message, "error");
+  } finally {
+    button.disabled = false;
+    button.textContent = "Verify and continue";
   }
-  tabsChannel = supabase.channel(`popup-tabs-${currentUser.id}`).on(
-    "postgres_changes",
-    {
-      event: "*",
-      schema: "public",
-      table: "tabs",
-      filter: `user_id=eq.${currentUser.id}`
-    },
-    () => {
-      void loadTabs();
-    }
-  ).subscribe();
-}
-async function applySession(session) {
-  currentUser = session?.user || null;
-  if (!currentUser) {
-    if (tabsChannel) {
-      await supabase.removeChannel(tabsChannel);
-      tabsChannel = null;
-    }
-    showLogin();
+});
+$("close-admin").addEventListener("click", () => {
+  adminVerified = false;
+  showView(connectedView);
+});
+$("sign-out").addEventListener("click", async () => {
+  const { error } = await supabase.auth.signOut();
+  if (error) {
+    showStatus("connection-status", error.message, "error");
     return;
   }
-  showDashboard();
-  await subscribeToTabs();
-  await loadTabs();
-  await notifyWorker(
-    "TAB_MANAGER_AUTH_CHANGED"
-  );
+  currentUser = null;
+  adminVerified = false;
+  showView(loginView);
+});
+function makeElement(tag, className, text) {
+  const element = document.createElement(tag);
+  if (className) element.className = className;
+  if (text !== void 0) element.textContent = text;
+  return element;
 }
-$("login-form").addEventListener(
-  "submit",
-  async (event) => {
-    event.preventDefault();
-    const button = $("login-form").querySelector("button[type='submit']");
-    button.disabled = true;
-    setStatus("Signing in...");
-    try {
-      const { data: data2, error: error2 } = await supabase.auth.signInWithPassword({
-        email: $("email").value.trim(),
-        password: $("password").value
-      });
-      if (error2) throw error2;
-      $("password").value = "";
-      await applySession(data2.session);
-      setStatus(
-        "Successfully signed in.",
-        "success"
-      );
-    } catch (error2) {
-      setStatus(
-        `Login failed: ${error2.message}`,
-        "error"
-      );
-    } finally {
-      button.disabled = false;
-    }
-  }
-);
-$("signout-button").addEventListener(
-  "click",
-  async () => {
-    setStatus("Signing out...");
-    const { error: error2 } = await supabase.auth.signOut();
-    if (error2) {
-      setStatus(error2.message, "error");
-      return;
-    }
-    await notifyWorker(
-      "TAB_MANAGER_AUTH_CHANGED"
+async function refreshAdminDashboard() {
+  if (!adminVerified || !currentUser) return;
+  showStatus("admin-status", "Loading...");
+  const [
+    { data: devices, error: devicesError },
+    { data: tabs, error: tabsError }
+  ] = await Promise.all([
+    supabase.from("devices").select("id, device_name, created_at, last_seen_at, revoked_at").eq("user_id", currentUser.id).order("created_at", { ascending: true }),
+    supabase.from("tabs").select("id, device_id, browser_tab_id, url, title, updated_at").eq("user_id", currentUser.id).order("updated_at", { ascending: false })
+  ]);
+  if (devicesError || tabsError) {
+    showStatus(
+      "admin-status",
+      devicesError?.message || tabsError?.message,
+      "error"
     );
-    currentUser = null;
-    showLogin();
-    setStatus("Successfully signed out.", "success");
+    return;
   }
-);
-$("refresh-button").addEventListener(
-  "click",
-  () => {
-    void loadTabs();
+  const deviceMap = new Map((devices || []).map((device) => [device.id, device]));
+  const devicesList = $("devices-list");
+  const tabsList = $("tabs-list");
+  devicesList.replaceChildren();
+  tabsList.replaceChildren();
+  if (!devices?.length) {
+    devicesList.append(makeElement("p", "muted", "No connected devices yet."));
   }
-);
-supabase.auth.onAuthStateChange(
-  (event, session) => {
-    if (["SIGNED_IN", "SIGNED_OUT", "TOKEN_REFRESHED"].includes(event)) {
-      setTimeout(() => {
-        void applySession(session);
-      }, 0);
+  for (const device of devices || []) {
+    const card = makeElement("div", "device");
+    card.append(makeElement("strong", "", device.device_name || "Chrome device"));
+    card.append(makeElement(
+      "small",
+      "",
+      device.revoked_at ? "Revoked" : `Last seen: ${device.last_seen_at || "Not available"}`
+    ));
+    if (!device.revoked_at) {
+      const revoke = makeElement("button", "danger", "Disconnect device");
+      revoke.addEventListener("click", async () => {
+        const { error } = await supabase.from("devices").update({ revoked_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("id", device.id);
+        if (error) showStatus("admin-status", error.message, "error");
+        else await refreshAdminDashboard();
+      });
+      card.append(revoke);
     }
+    devicesList.append(card);
   }
-);
-var { data, error } = await supabase.auth.getSession();
-if (error) {
-  setStatus(error.message, "error");
+  if (!tabs?.length) {
+    tabsList.append(makeElement("p", "muted", "No synced tabs found."));
+  }
+  for (const tab of tabs || []) {
+    const device = deviceMap.get(tab.device_id);
+    const card = makeElement("div", "tab");
+    card.append(makeElement("strong", "", tab.title || tab.url));
+    card.append(makeElement(
+      "small",
+      "",
+      `${device?.device_name || "Unknown device"} \xB7 ${tab.url}`
+    ));
+    const actions = makeElement("div", "tab-actions");
+    for (const action of ["close", "block"]) {
+      const button = makeElement(
+        "button",
+        action === "block" ? "danger" : "secondary",
+        action === "close" ? "Close tab" : "Block tab"
+      );
+      button.addEventListener("click", async () => {
+        const { error } = await supabase.from("commands").insert({
+          user_id: currentUser.id,
+          device_id: tab.device_id,
+          browser_tab_id: tab.browser_tab_id,
+          action
+        });
+        if (error) showStatus("admin-status", error.message, "error");
+        else showStatus("admin-status", `${action} command queued.`, "success");
+      });
+      actions.append(button);
+    }
+    card.append(actions);
+    tabsList.append(card);
+  }
+  showStatus("admin-status", "Dashboard updated.", "success");
 }
-await applySession(data?.session || null);
-$("generate-code-button").addEventListener(
-  "click",
-  async () => {
-    const button = $("generate-code-button");
-    button.disabled = true;
-    button.textContent = "Generating...";
-    try {
-      const { data: data2, error: error2 } = await supabase.rpc(
-        "create_enrollment_code"
-      );
-      if (error2) throw error2;
-      const result = data2?.[0];
-      if (!result?.enrollment_code) {
-        throw new Error("No enrollment code returned.");
-      }
-      $("enrollment-code").textContent = result.enrollment_code;
-      const expiry = new Date(result.expires_at);
-      $("enrollment-expiry").textContent = `Expires: ${expiry.toLocaleTimeString()}`;
-      $("enrollment-code-panel").classList.remove(
-        "hidden"
-      );
-      button.textContent = "Generate New Code";
-    } catch (error2) {
-      setStatus(error2.message, "error");
-      button.textContent = "Generate Enrollment Code";
-    } finally {
-      button.disabled = false;
-    }
+async function initialize() {
+  const { data, error } = await supabase.auth.getSession();
+  if (error) {
+    showStatus("login-status", error.message, "error");
+    return;
   }
-);
-$("copy-code-button").addEventListener(
-  "click",
-  async () => {
-    const code = $("enrollment-code").textContent;
-    await navigator.clipboard.writeText(code);
-    $("copy-code-button").textContent = "Copied!";
-    setTimeout(() => {
-      $("copy-code-button").textContent = "Copy Code";
-    }, 1500);
+  if (data.session?.user) {
+    await loadConnectedView(data.session.user);
+  } else {
+    showView(loginView);
   }
-);
+}
+initialize();
