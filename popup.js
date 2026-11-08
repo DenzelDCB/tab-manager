@@ -398,3 +398,63 @@ if (error) {
 }
 
 await applySession(data?.session || null);
+
+$("generate-code-button").addEventListener(
+  "click",
+  async () => {
+    const button = $("generate-code-button");
+
+    button.disabled = true;
+    button.textContent = "Generating...";
+
+    try {
+      const { data, error } = await supabase.rpc(
+        "create_enrollment_code"
+      );
+
+      if (error) throw error;
+
+      const result = data?.[0];
+
+      if (!result?.enrollment_code) {
+        throw new Error("No enrollment code returned.");
+      }
+
+      $("enrollment-code").textContent =
+        result.enrollment_code;
+
+      const expiry = new Date(result.expires_at);
+
+      $("enrollment-expiry").textContent =
+        `Expires: ${expiry.toLocaleTimeString()}`;
+
+      $("enrollment-code-panel").classList.remove(
+        "hidden"
+      );
+
+      button.textContent = "Generate New Code";
+
+    } catch (error) {
+      setStatus(error.message, "error");
+      button.textContent = "Generate Enrollment Code";
+
+    } finally {
+      button.disabled = false;
+    }
+  }
+);
+
+$("copy-code-button").addEventListener(
+  "click",
+  async () => {
+    const code = $("enrollment-code").textContent;
+
+    await navigator.clipboard.writeText(code);
+
+    $("copy-code-button").textContent = "Copied!";
+
+    setTimeout(() => {
+      $("copy-code-button").textContent = "Copy Code";
+    }, 1500);
+  }
+);
