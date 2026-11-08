@@ -1,0 +1,124 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport"
+        content="width=device-width, initial-scale=1.0">
+
+  <title>Website Restricted</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      min-height: 100vh;
+      margin: 0;
+      padding: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #10131a;
+      color: #f1f5f9;
+      font-family: Arial, sans-serif;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 460px;
+      padding: 35px;
+      border: 1px solid #303746;
+      border-radius: 14px;
+      background: #191e28;
+      text-align: center;
+    }
+
+    .icon {
+      font-size: 45px;
+      margin-bottom: 15px;
+    }
+
+    h1 {
+      margin-bottom: 12px;
+      font-size: 25px;
+    }
+
+    p {
+      color: #94a3b8;
+      line-height: 1.6;
+    }
+
+    .website {
+      margin: 20px 0;
+      padding: 13px;
+      border-radius: 8px;
+      background: #10131a;
+      color: #a5b4fc;
+      font-size: 13px;
+      overflow-wrap: anywhere;
+    }
+
+    button {
+      width: 100%;
+      padding: 13px;
+      border: 0;
+      border-radius: 7px;
+      background: #6366f1;
+      color: white;
+      font-size: 14px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    button:hover {
+      opacity: 0.85;
+    }
+
+    .footer {
+      margin-top: 25px;
+      font-size: 11px;
+      color: #64748b;
+    }
+  </style>
+</head>
+
+<body>
+
+  <main class="container">
+
+    <div class="icon">🔒</div>
+
+    <h1>Website Restricted</h1>
+
+    <p>
+      Access to this website has been restricted
+      by your browser administrator.
+    </p>
+
+    <h2 id="blocked-title">Restricted Website</h2>
+
+    <div class="website" id="blocked-url">
+      Loading website...
+    </div>
+
+    <p>
+      If you believe this restriction was applied
+      incorrectly, contact your administrator.
+    </p>
+
+    <button id="back-button" type="button">
+      Return to Safety
+    </button>
+
+    <div class="footer">
+      Managed by Tab Manager
+    </div>
+
+  </main>
+
+  <script src="blocked.js"></script>
+
+</body>
+</html>

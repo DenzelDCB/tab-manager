@@ -1,0 +1,279 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport"
+        content="width=device-width, initial-scale=1.0">
+
+  <title>Tab Manager</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      width: 380px;
+      min-height: 300px;
+      margin: 0;
+      padding: 18px;
+      font-family: Arial, sans-serif;
+      background: #10131a;
+      color: #f1f5f9;
+    }
+
+    h1 {
+      margin: 0 0 6px;
+      font-size: 21px;
+    }
+
+    h2 {
+      margin: 0;
+      font-size: 17px;
+    }
+
+    p {
+      color: #94a3b8;
+      font-size: 13px;
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+
+    .subtitle {
+      margin: 0 0 20px;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    input {
+      display: block;
+      width: 100%;
+      padding: 11px;
+      margin: 10px 0;
+      border: 1px solid #303746;
+      border-radius: 7px;
+      background: #1b202b;
+      color: white;
+      outline: none;
+    }
+
+    input:focus {
+      border-color: #818cf8;
+    }
+
+    button {
+      padding: 9px 12px;
+      border: 0;
+      border-radius: 6px;
+      background: #6366f1;
+      color: white;
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    button:hover {
+      opacity: 0.85;
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    #login-form button {
+      width: 100%;
+      margin-top: 8px;
+      padding: 11px;
+    }
+
+    .danger {
+      background: #dc2626;
+    }
+
+    .secondary {
+      background: #475569;
+    }
+
+    .tab-card {
+      padding: 12px;
+      margin: 12px 0;
+      border: 1px solid #303746;
+      border-radius: 9px;
+      background: #191e28;
+    }
+
+    .tab-details {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      min-width: 0;
+    }
+
+    .tab-title {
+      font-size: 14px;
+      overflow-wrap: anywhere;
+    }
+
+    .tab-url {
+      color: #818cf8;
+      font-size: 12px;
+      overflow-wrap: anywhere;
+    }
+
+    .tab-meta {
+      color: #94a3b8;
+      font-size: 11px;
+    }
+
+    .tab-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .tab-actions button {
+      flex: 1;
+    }
+
+    .dashboard-info {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+    }
+
+    .count {
+      color: #a5b4fc;
+      font-weight: bold;
+    }
+
+    #status {
+      min-height: 16px;
+      margin: 12px 0;
+      font-size: 12px;
+      overflow-wrap: anywhere;
+    }
+
+    #status.error {
+      color: #f87171;
+    }
+
+    #status.success {
+      color: #4ade80;
+    }
+
+    .empty {
+      padding: 25px 10px;
+      text-align: center;
+      color: #94a3b8;
+    }
+
+    .account {
+      color: #94a3b8;
+      font-size: 12px;
+      overflow-wrap: anywhere;
+    }
+
+    .footer {
+      margin-top: 18px;
+      padding-top: 12px;
+      border-top: 1px solid #303746;
+      color: #64748b;
+      font-size: 11px;
+      text-align: center;
+    }
+  </style>
+</head>
+
+<body>
+
+  <header class="header">
+    <h1>Tab Manager</h1>
+    <span class="count" id="tab-count">0</span>
+  </header>
+
+  <p id="status"></p>
+
+  <!-- Login screen -->
+  <section id="login-view">
+
+    <h2>Administrator Login</h2>
+
+    <p class="subtitle">
+      Sign in to manage your connected browsers.
+    </p>
+
+    <form id="login-form">
+
+      <input
+        id="email"
+        type="email"
+        placeholder="Email address"
+        autocomplete="username"
+        required
+      >
+
+      <input
+        id="password"
+        type="password"
+        placeholder="Password"
+        autocomplete="current-password"
+        required
+      >
+
+      <button type="submit">
+        Sign In
+      </button>
+
+    </form>
+
+  </section>
+
+  <!-- Dashboard -->
+  <section id="dashboard-view" class="hidden">
+
+    <div class="dashboard-info">
+      <div>
+        <h2>Tracked Tabs</h2>
+        <p class="account" id="account-email"></p>
+      </div>
+
+      <button
+        id="signout-button"
+        class="secondary"
+        type="button"
+      >
+        Sign Out
+      </button>
+    </div>
+
+    <button
+      id="refresh-button"
+      type="button"
+      style="width: 100%; margin-bottom: 10px;"
+    >
+      Refresh Tabs
+    </button>
+
+    <div id="tabs-list">
+      <p class="empty">Loading tabs...</p>
+    </div>
+
+  </section>
+
+  <footer class="footer">
+    Remote Browser Tab Management
+  </footer>
+
+  <script type="module" src="dist/popup.js"></script>
+
+</body>
+</html>

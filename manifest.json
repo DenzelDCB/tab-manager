@@ -1,0 +1,22 @@
+{
+  "manifest_version": 3,
+  "name": "Tab Manager",
+  "version": "0.1.0",
+  "description": "Monitor and manage tabs on an authorized browser.",
+  "permissions": [
+    "tabs",
+    "storage",
+    "alarms"
+  ],
+  "host_permissions": [
+    "https://migxycpmmrdlucnmyqdn.supabase.co/*"
+  ],
+  "background": {
+    "service_worker": "dist/service_worker.js",
+    "type": "module"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Tab Manager"
+  }
+}
