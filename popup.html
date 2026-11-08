@@ -1,324 +1,106 @@
-
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport"
-        content="width=device-width, initial-scale=1.0">
-
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Tab Manager</title>
-
   <style>
-    * {
-      box-sizing: border-box;
-    }
-
-    body {
-      width: 380px;
-      min-height: 300px;
-      margin: 0;
-      padding: 18px;
+    :root {
+      color-scheme: dark;
       font-family: Arial, sans-serif;
-      background: #10131a;
-      color: #f1f5f9;
+      background: #10111a;
+      color: #f5f5fa;
     }
-
-    h1 {
-      margin: 0 0 6px;
-      font-size: 21px;
-    }
-
-    h2 {
-      margin: 0;
-      font-size: 17px;
-    }
-
-    p {
-      color: #94a3b8;
-      font-size: 13px;
-    }
-
-    .header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 20px;
-    }
-
-    .subtitle {
-      margin: 0 0 20px;
-    }
-
-    .hidden {
-      display: none !important;
-    }
-
+    * { box-sizing: border-box; }
+    body { width: 360px; min-height: 420px; margin: 0; padding: 20px; }
+    h1 { margin: 0 0 6px; font-size: 21px; }
+    h2 { margin: 20px 0 10px; font-size: 16px; }
+    p { color: #a9aabd; font-size: 13px; line-height: 1.5; }
+    label { display: block; margin: 12px 0 5px; font-size: 12px; color: #c8c9d8; }
     input {
-      display: block;
-      width: 100%;
-      padding: 11px;
-      margin: 10px 0;
-      border: 1px solid #303746;
-      border-radius: 7px;
-      background: #1b202b;
-      color: white;
-      outline: none;
+      width: 100%; padding: 11px; border: 1px solid #35364a;
+      border-radius: 8px; background: #191a27; color: white;
     }
-
-    input:focus {
-      border-color: #818cf8;
-    }
-
     button {
-      padding: 9px 12px;
-      border: 0;
-      border-radius: 6px;
-      background: #6366f1;
-      color: white;
-      cursor: pointer;
-      font-weight: 600;
+      border: 0; border-radius: 8px; padding: 10px 12px;
+      background: #8065ed; color: white; cursor: pointer;
+      font-weight: 600; width: 100%; margin-top: 10px;
     }
-
-    button:hover {
-      opacity: 0.85;
+    button.secondary { background: #292a3b; }
+    button.danger { background: #a83c54; }
+    button:disabled { opacity: .55; cursor: not-allowed; }
+    .muted { color: #9294aa; }
+    .status { min-height: 18px; margin-top: 10px; font-size: 12px; }
+    .success { color: #70d6a2; }
+    .error { color: #ff8294; }
+    .hidden { display: none !important; }
+    .device, .tab {
+      background: #191a27; border: 1px solid #303146;
+      border-radius: 9px; padding: 10px; margin-top: 8px;
     }
-
-    button:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-
-    #login-form button {
-      width: 100%;
-      margin-top: 8px;
-      padding: 11px;
-    }
-
-    .danger {
-      background: #dc2626;
-    }
-
-    .secondary {
-      background: #475569;
-    }
-
-    .tab-card {
-      padding: 12px;
-      margin: 12px 0;
-      border: 1px solid #303746;
-      border-radius: 9px;
-      background: #191e28;
-    }
-
-    .tab-details {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-      min-width: 0;
-    }
-
-    .tab-title {
-      font-size: 14px;
-      overflow-wrap: anywhere;
-    }
-
-    .tab-url {
-      color: #818cf8;
-      font-size: 12px;
-      overflow-wrap: anywhere;
-    }
-
-    .tab-meta {
-      color: #94a3b8;
-      font-size: 11px;
-    }
-
-    .tab-actions {
-      display: flex;
-      gap: 8px;
-      margin-top: 12px;
-    }
-
-    .tab-actions button {
-      flex: 1;
-    }
-
-    .dashboard-info {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 15px;
-    }
-
-    .count {
-      color: #a5b4fc;
-      font-weight: bold;
-    }
-
-    #status {
-      min-height: 16px;
-      margin: 12px 0;
-      font-size: 12px;
-      overflow-wrap: anywhere;
-    }
-
-    #status.error {
-      color: #f87171;
-    }
-
-    #status.success {
-      color: #4ade80;
-    }
-
-    .empty {
-      padding: 25px 10px;
-      text-align: center;
-      color: #94a3b8;
-    }
-
-    .account {
-      color: #94a3b8;
-      font-size: 12px;
-      overflow-wrap: anywhere;
-    }
-
-    .footer {
-      margin-top: 18px;
-      padding-top: 12px;
-      border-top: 1px solid #303746;
-      color: #64748b;
-      font-size: 11px;
-      text-align: center;
-    }
+    .device strong, .tab strong { display: block; font-size: 13px; overflow-wrap: anywhere; }
+    .device small, .tab small { color: #9b9db2; font-size: 11px; }
+    .tab-actions { display: flex; gap: 7px; margin-top: 8px; }
+    .tab-actions button { margin: 0; padding: 7px; font-size: 11px; }
+    .row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .row button { width: auto; }
+    #admin-content { max-height: 360px; overflow-y: auto; }
+    hr { border: 0; border-top: 1px solid #303146; margin: 18px 0; }
   </style>
 </head>
-
 <body>
+  <h1>Tab Manager</h1>
+  <p>Connect this browser to your account to sync its tabs.</p>
 
-  <header class="header">
-    <h1>Tab Manager</h1>
-    <span class="count" id="tab-count">0</span>
-    <a href="enroll.html" target="_blank">
-  Enroll this device
-</a>
-  </header>
-
-  <p id="status"></p>
-
-  <!-- Login screen -->
   <section id="login-view">
-
-    <h2>Administrator Login</h2>
-
-    <p class="subtitle">
-      Sign in to manage your connected browsers.
-    </p>
-
     <form id="login-form">
-
-      <input
-        id="email"
-        type="email"
-        placeholder="Email address"
-        autocomplete="username"
-        required
-      >
-
-      <input
-        id="password"
-        type="password"
-        placeholder="Password"
-        autocomplete="current-password"
-        required
-      >
-
-      <button type="submit">
-        Sign In
-      </button>
-
+      <label for="email">Email</label>
+      <input id="email" type="email" autocomplete="username" required>
+      <label for="password">Password</label>
+      <input id="password" type="password" autocomplete="current-password" required>
+      <button id="login-button" type="submit">Sign in and connect</button>
     </form>
-
+    <div id="login-status" class="status"></div>
   </section>
 
-  <!-- Dashboard -->
-  <section id="dashboard-view" class="hidden">
-
-    <div class="dashboard-info">
-      <div>
-        <h2>Tracked Tabs</h2>
-        <p class="account" id="account-email"></p>
-      </div>
-
-      <button
-        id="signout-button"
-        class="secondary"
-        type="button"
-      >
-        Sign Out
-      </button>
+  <section id="connected-view" class="hidden">
+    <div class="device">
+      <strong id="account-email"></strong>
+      <small id="connection-label">This browser is connected.</small>
     </div>
-
-    <button
-      id="refresh-button"
-      type="button"
-      style="width: 100%; margin-bottom: 10px;"
-    >
-      Refresh Tabs
-    </button>
-
-    <div id="tabs-list">
-      <p class="empty">Loading tabs...</p>
-    </div>
-
+    <button id="open-admin">Open Admin</button>
+    <button id="sign-out" class="secondary">Sign out</button>
+    <div id="connection-status" class="status"></div>
   </section>
 
-<div style="margin: 18px 0; padding: 12px;
-            background: #191e28;
-            border: 1px solid #303746;
-            border-radius: 8px;">
+  <section id="admin-login-view" class="hidden">
+    <hr>
+    <h2>Admin verification</h2>
+    <p>Enter your account password again to open the admin dashboard.</p>
+    <form id="admin-login-form">
+      <label for="admin-password">Password</label>
+      <input id="admin-password" type="password" autocomplete="current-password" required>
+      <button id="admin-login-button" type="submit">Verify and continue</button>
+      <button id="cancel-admin" class="secondary" type="button">Cancel</button>
+    </form>
+    <div id="admin-login-status" class="status"></div>
+  </section>
 
-  <h2>Enroll another device</h2>
-
-  <p>
-    Generate a one-time code to connect another browser.
-  </p>
-
-  <button
-    id="generate-code-button"
-    type="button"
-    style="width: 100%;"
-  >
-    Generate Enrollment Code
-  </button>
-
-  <div id="enrollment-code-panel" class="hidden"
-       style="margin-top: 12px;">
-
-    <p>Share this code with the other device:</p>
-
-    <strong id="enrollment-code"
-            style="font-size: 20px;
-                   letter-spacing: 2px;
-                   color: #a5b4fc;">
-    </strong>
-
-    <p id="enrollment-expiry"></p>
-
-    <button id="copy-code-button"
-            type="button"
-            class="secondary"
-            style="width: 100%;">
-      Copy Code
-    </button>
-
-  </div>
-</div>
-
-  <footer class="footer">
-    Remote Browser Tab Management
-  </footer>
+  <section id="admin-view" class="hidden">
+    <hr>
+    <div class="row">
+      <h2>Admin dashboard</h2>
+      <button id="close-admin" class="secondary">Back</button>
+    </div>
+    <div id="admin-content">
+      <h2>Connected devices</h2>
+      <div id="devices-list"></div>
+      <h2>Open tabs</h2>
+      <div id="tabs-list"></div>
+    </div>
+    <div id="admin-status" class="status"></div>
+  </section>
 
   <script type="module" src="dist/popup.js"></script>
-
 </body>
 </html>
