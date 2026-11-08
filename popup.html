@@ -198,6 +198,9 @@
   <header class="header">
     <h1>Tab Manager</h1>
     <span class="count" id="tab-count">0</span>
+    <a href="enroll.html" target="_blank">
+  Enroll this device
+</a>
   </header>
 
   <p id="status"></p>
@@ -268,6 +271,48 @@
     </div>
 
   </section>
+
+<div style="margin: 18px 0; padding: 12px;
+            background: #191e28;
+            border: 1px solid #303746;
+            border-radius: 8px;">
+
+  <h2>Enroll another device</h2>
+
+  <p>
+    Generate a one-time code to connect another browser.
+  </p>
+
+  <button
+    id="generate-code-button"
+    type="button"
+    style="width: 100%;"
+  >
+    Generate Enrollment Code
+  </button>
+
+  <div id="enrollment-code-panel" class="hidden"
+       style="margin-top: 12px;">
+
+    <p>Share this code with the other device:</p>
+
+    <strong id="enrollment-code"
+            style="font-size: 20px;
+                   letter-spacing: 2px;
+                   color: #a5b4fc;">
+    </strong>
+
+    <p id="enrollment-expiry"></p>
+
+    <button id="copy-code-button"
+            type="button"
+            class="secondary"
+            style="width: 100%;">
+      Copy Code
+    </button>
+
+  </div>
+</div>
 
   <footer class="footer">
     Remote Browser Tab Management
