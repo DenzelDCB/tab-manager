@@ -3,7 +3,8 @@ import { build } from "esbuild";
 
 const files = [
   "popup.js",
-  "service_worker.js"
+  "service_worker.js",
+  "enroll.js"
 ];
 
 for (const file of files) {
