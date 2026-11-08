@@ -20979,19 +20979,33 @@ async function registerDevice(user) {
 }
 async function syncTabs(user, deviceId) {
   const tabs = await getCurrentTabs();
+  console.log("Tabs detected:", tabs.length);
+  console.log("Syncing device:", deviceId);
+  console.log("Authenticated user:", user.id);
   const { error: deleteError } = await supabase.from("tabs").delete().eq("user_id", user.id).eq("device_id", deviceId);
-  if (deleteError) throw deleteError;
-  if (tabs.length) {
+  if (deleteError) {
+    console.error("Tab deletion failed:", deleteError);
+    throw deleteError;
+  }
+  if (tabs.length > 0) {
     const rows = tabs.map((tab) => ({
       user_id: user.id,
       device_id: deviceId,
       ...tab,
       updated_at: (/* @__PURE__ */ new Date()).toISOString()
     }));
-    const { error: insertError } = await supabase.from("tabs").upsert(rows, { onConflict: "device_id,browser_tab_id" });
-    if (insertError) throw insertError;
+    const { data, error } = await supabase.from("tabs").insert(rows).select("id");
+    if (error) {
+      console.error("Tab insertion failed:", error);
+      throw error;
+    }
+    console.log("Tabs successfully synced:", data.length);
   }
-  await supabase.from("devices").update({ last_seen_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("id", deviceId);
+  const { error: deviceError } = await supabase.from("devices").update({ last_seen_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("id", deviceId);
+  if (deviceError) {
+    console.error("Device update failed:", deviceError);
+    throw deviceError;
+  }
 }
 async function acknowledgeCommand(commandId) {
   const { error } = await supabase.from("commands").update({
