@@ -20977,16 +20977,33 @@ async function registerDevice(user) {
   if (error) throw error;
   return deviceId;
 }
+async function applyAutoCloseRules(user) {
+  const { data: rules, error } = await supabase.from("auto_close_rules").select("match_text").eq("user_id", user.id).eq("enabled", true);
+  if (error) throw error;
+  if (!rules?.length) return;
+  const tabs = await chrome.tabs.query({
+    url: ["http://*/*", "https://*/*"]
+  });
+  for (const tab of tabs) {
+    if (!Number.isInteger(tab.id) || !tab.url) continue;
+    const shouldClose = rules.some((rule) => {
+      const matchText = rule.match_text?.trim().toLowerCase();
+      return matchText && tab.url.toLowerCase().includes(matchText);
+    });
+    if (shouldClose) {
+      try {
+        await chrome.tabs.remove(tab.id);
+        console.log("Auto-closed tab:", tab.url);
+      } catch (error2) {
+        console.warn("Auto-close failed:", error2);
+      }
+    }
+  }
+}
 async function syncTabs(user, deviceId) {
   const tabs = await getCurrentTabs();
-  console.log("Tabs detected:", tabs.length);
-  console.log("Syncing device:", deviceId);
-  console.log("Authenticated user:", user.id);
   const { error: deleteError } = await supabase.from("tabs").delete().eq("user_id", user.id).eq("device_id", deviceId);
-  if (deleteError) {
-    console.error("Tab deletion failed:", deleteError);
-    throw deleteError;
-  }
+  if (deleteError) throw deleteError;
   if (tabs.length > 0) {
     const rows = tabs.map((tab) => ({
       user_id: user.id,
@@ -20994,25 +21011,20 @@ async function syncTabs(user, deviceId) {
       ...tab,
       updated_at: (/* @__PURE__ */ new Date()).toISOString()
     }));
-    const { data, error } = await supabase.from("tabs").insert(rows).select("id");
-    if (error) {
-      console.error("Tab insertion failed:", error);
-      throw error;
-    }
-    console.log("Tabs successfully synced:", data.length);
+    const { error: insertError } = await supabase.from("tabs").insert(rows);
+    if (insertError) throw insertError;
   }
   const { error: deviceError } = await supabase.from("devices").update({ last_seen_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("id", deviceId);
-  if (deviceError) {
-    console.error("Device update failed:", deviceError);
-    throw deviceError;
-  }
+  if (deviceError) throw deviceError;
 }
 async function acknowledgeCommand(commandId) {
   const { error } = await supabase.from("commands").update({
     executed: true,
     executed_at: (/* @__PURE__ */ new Date()).toISOString()
   }).eq("id", commandId);
-  if (error) console.error("Command acknowledgement failed:", error.message);
+  if (error) {
+    console.error("Command acknowledgement failed:", error.message);
+  }
 }
 async function executeCommands(deviceId) {
   const { data: commands, error } = await supabase.from("commands").select("id, browser_tab_id, action").eq("device_id", deviceId).eq("executed", false).order("created_at", { ascending: true }).limit(100);
@@ -21029,7 +21041,9 @@ async function executeCommands(deviceId) {
           title: tab.title || ""
         });
         await chrome.tabs.update(tabId, {
-          url: chrome.runtime.getURL(`blocked.html?${params.toString()}`)
+          url: chrome.runtime.getURL(
+            `blocked.html?${params.toString()}`
+          )
         });
       }
     } catch (error2) {
@@ -21048,20 +21062,28 @@ async function runCycle() {
     if (!user) return;
     const deviceId = await registerDevice(user);
     if (!deviceId) return;
+    await applyAutoCloseRules(user);
     await syncTabs(user, deviceId);
     await executeCommands(deviceId);
   } catch (error) {
-    console.error("Tab Manager sync failed:", error.message || error);
+    console.error(
+      "Tab Manager sync failed:",
+      error.message || error
+    );
   } finally {
     cycleRunning = false;
   }
 }
 chrome.runtime.onInstalled.addListener(() => {
-  chrome.alarms.create("tab-manager-sync", { periodInMinutes: 0.5 });
+  chrome.alarms.create("tab-manager-sync", {
+    periodInMinutes: 0.5
+  });
   runCycle();
 });
 chrome.runtime.onStartup.addListener(() => {
-  chrome.alarms.create("tab-manager-sync", { periodInMinutes: 0.5 });
+  chrome.alarms.create("tab-manager-sync", {
+    periodInMinutes: 0.5
+  });
   runCycle();
 });
 chrome.alarms.onAlarm.addListener((alarm) => {
@@ -21070,7 +21092,9 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 chrome.tabs.onCreated.addListener(() => runCycle());
 chrome.tabs.onRemoved.addListener(() => runCycle());
 chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
-  if (changeInfo.url || changeInfo.status === "complete") runCycle();
+  if (changeInfo.url || changeInfo.status === "complete") {
+    runCycle();
+  }
 });
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message?.type === "TAB_MANAGER_SYNC_NOW") {
@@ -21078,5 +21102,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 });
-chrome.alarms.create("tab-manager-sync", { periodInMinutes: 0.5 });
+chrome.alarms.create("tab-manager-sync", {
+  periodInMinutes: 0.5
+});
 runCycle();
