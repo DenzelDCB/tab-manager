@@ -21036,6 +21036,21 @@ function startAdminRealtime() {
         refreshAdminDashboard();
       }, 400);
     }
+  ).on(
+    "postgres_changes",
+    {
+      event: "*",
+      schema: "public",
+      table: "auto_close_rules",
+      filter: `user_id=eq.${currentUser.id}`
+    },
+    () => {
+      if (!adminVerified) return;
+      clearTimeout(refreshTimer);
+      refreshTimer = setTimeout(() => {
+        refreshAdminDashboard();
+      }, 400);
+    }
   ).subscribe((status) => {
     console.log("Admin Realtime:", status);
     if (status === "SUBSCRIBED") {
@@ -21133,6 +21148,103 @@ function makeElement(tag, className, text) {
   if (text !== void 0) element.textContent = text;
   return element;
 }
+async function loadAutoCloseRules() {
+  const { data: rules, error } = await supabase.from("auto_close_rules").select("id, match_text, enabled, created_at").eq("user_id", currentUser.id).order("created_at", { ascending: false });
+  if (error) throw error;
+  const list = $("auto-close-list");
+  list.replaceChildren();
+  if (!rules?.length) {
+    list.append(
+      makeElement("p", "muted", "No auto-close rules yet.")
+    );
+    return;
+  }
+  for (const rule of rules) {
+    const card = makeElement("div", "auto-close-rule");
+    const details = makeElement("div", "auto-close-details");
+    details.append(
+      makeElement("strong", "", rule.match_text)
+    );
+    details.append(
+      makeElement(
+        "small",
+        "",
+        rule.enabled ? "Enabled" : "Disabled"
+      )
+    );
+    const controls = makeElement("div", "auto-close-controls");
+    const toggle = makeElement(
+      "button",
+      rule.enabled ? "secondary" : "success",
+      rule.enabled ? "Disable" : "Enable"
+    );
+    toggle.addEventListener("click", async () => {
+      toggle.disabled = true;
+      const { error: error2 } = await supabase.from("auto_close_rules").update({ enabled: !rule.enabled }).eq("id", rule.id).eq("user_id", currentUser.id);
+      if (error2) {
+        showStatus("auto-close-status", error2.message, "error");
+      } else {
+        showStatus(
+          "auto-close-status",
+          "Rule updated.",
+          "success"
+        );
+        await refreshAdminDashboard();
+      }
+      toggle.disabled = false;
+    });
+    const remove2 = makeElement("button", "danger", "Delete");
+    remove2.addEventListener("click", async () => {
+      if (!confirm(`Delete the rule "${rule.match_text}"?`)) {
+        return;
+      }
+      remove2.disabled = true;
+      const { error: error2 } = await supabase.from("auto_close_rules").delete().eq("id", rule.id).eq("user_id", currentUser.id);
+      if (error2) {
+        showStatus("auto-close-status", error2.message, "error");
+      } else {
+        showStatus(
+          "auto-close-status",
+          "Rule deleted.",
+          "success"
+        );
+        await refreshAdminDashboard();
+      }
+    });
+    controls.append(toggle, remove2);
+    card.append(details, controls);
+    list.append(card);
+  }
+}
+$("auto-close-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const input = $("auto-close-input");
+  const button = $("auto-close-add");
+  const matchText = input.value.trim();
+  if (!matchText) return;
+  button.disabled = true;
+  button.textContent = "Adding...";
+  try {
+    const { error } = await supabase.from("auto_close_rules").insert({
+      user_id: currentUser.id,
+      match_text: matchText,
+      enabled: true
+    });
+    if (error) throw error;
+    input.value = "";
+    showStatus(
+      "auto-close-status",
+      "Auto-close rule added.",
+      "success"
+    );
+    await refreshAdminDashboard();
+  } catch (error) {
+    showStatus("auto-close-status", error.message, "error");
+  } finally {
+    button.disabled = false;
+    button.textContent = "Add rule";
+  }
+});
 async function refreshAdminDashboard() {
   if (!adminVerified || !currentUser) return;
   if (dashboardLoading) {
@@ -21152,6 +21264,7 @@ async function refreshAdminDashboard() {
     if (devicesError || tabsError) {
       throw devicesError || tabsError;
     }
+    await loadAutoCloseRules();
     const deviceMap = new Map(
       (devices || []).map((device) => [device.id, device])
     );
