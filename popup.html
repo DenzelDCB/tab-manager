@@ -26,6 +26,47 @@
       background: #8065ed; color: white; cursor: pointer;
       font-weight: 600; width: 100%; margin-top: 10px;
     }
+    
+.auto-closer-section {
+  margin-bottom: 20px;
+}
+
+#auto-close-form {
+  display: flex;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+#auto-close-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.auto-close-rule {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  margin-top: 8px;
+  border: 1px solid #444;
+  border-radius: 8px;
+}
+
+.auto-close-details {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.auto-close-controls {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
     button.secondary { background: #292a3b; }
     button.danger { background: #a83c54; }
     button:disabled { opacity: .55; cursor: not-allowed; }
@@ -92,7 +133,34 @@
       <h2>Admin dashboard</h2>
       <button id="close-admin" class="secondary">Back</button>
     </div>
+    
     <div id="admin-content">
+      
+<div class="auto-closer-section">
+  <h3>Auto Closer</h3>
+  <p class="muted">
+    Automatically close tabs when their URLs contain specific text.
+    Rules apply to all connected devices.
+  </p>
+
+  <form id="auto-close-form">
+    <input
+      id="auto-close-input"
+      type="text"
+      placeholder="Example: youtube.com/shorts"
+      maxlength="500"
+      required
+    >
+
+    <button type="submit" id="auto-close-add">
+      Add rule
+    </button>
+  </form>
+
+  <div id="auto-close-status" class="status"></div>
+  <div id="auto-close-list"></div>
+</div>
+
       <h2>Connected devices</h2>
       <div id="devices-list"></div>
       <h2>Open tabs</h2>
