@@ -20950,6 +20950,10 @@ var adminLoginView = $("admin-login-view");
 var adminView = $("admin-view");
 var currentUser = null;
 var adminVerified = false;
+var adminChannel = null;
+var refreshTimer = null;
+var dashboardLoading = false;
+var refreshPending = false;
 function showStatus(id, message, type = "") {
   const element = $(id);
   element.textContent = message;
@@ -20992,10 +20996,58 @@ async function loadConnectedView(user) {
   try {
     await registerThisDevice(user);
     $("connection-label").textContent = "This browser is connected and syncing.";
-    chrome.runtime.sendMessage({ type: "TAB_MANAGER_SYNC_NOW" });
+    chrome.runtime.sendMessage({
+      type: "TAB_MANAGER_SYNC_NOW"
+    });
   } catch (error) {
     $("connection-label").textContent = "Connection needs attention.";
     showStatus("connection-status", error.message, "error");
+  }
+}
+function startAdminRealtime() {
+  stopAdminRealtime();
+  adminChannel = supabase.channel(`admin-tabs-${currentUser.id}`).on(
+    "postgres_changes",
+    {
+      event: "*",
+      schema: "public",
+      table: "tabs",
+      filter: `user_id=eq.${currentUser.id}`
+    },
+    () => {
+      if (!adminVerified) return;
+      clearTimeout(refreshTimer);
+      refreshTimer = setTimeout(() => {
+        refreshAdminDashboard();
+      }, 400);
+    }
+  ).on(
+    "postgres_changes",
+    {
+      event: "*",
+      schema: "public",
+      table: "devices",
+      filter: `user_id=eq.${currentUser.id}`
+    },
+    () => {
+      if (!adminVerified) return;
+      clearTimeout(refreshTimer);
+      refreshTimer = setTimeout(() => {
+        refreshAdminDashboard();
+      }, 400);
+    }
+  ).subscribe((status) => {
+    console.log("Admin Realtime:", status);
+    if (status === "SUBSCRIBED") {
+      console.log("Live tab updates enabled.");
+    }
+  });
+}
+function stopAdminRealtime() {
+  clearTimeout(refreshTimer);
+  if (adminChannel) {
+    supabase.removeChannel(adminChannel);
+    adminChannel = null;
   }
 }
 $("login-form").addEventListener("submit", async (event) => {
@@ -21025,7 +21077,9 @@ $("open-admin").addEventListener("click", () => {
   showStatus("admin-login-status", "");
   showView(adminLoginView);
 });
-$("cancel-admin").addEventListener("click", () => showView(connectedView));
+$("cancel-admin").addEventListener("click", () => {
+  showView(connectedView);
+});
 $("admin-login-form").addEventListener("submit", async (event) => {
   event.preventDefault();
   const button = $("admin-login-button");
@@ -21048,6 +21102,7 @@ $("admin-login-form").addEventListener("submit", async (event) => {
     adminVerified = true;
     $("admin-password").value = "";
     showView(adminView);
+    startAdminRealtime();
     await refreshAdminDashboard();
   } catch (error) {
     showStatus("admin-login-status", error.message, "error");
@@ -21058,9 +21113,11 @@ $("admin-login-form").addEventListener("submit", async (event) => {
 });
 $("close-admin").addEventListener("click", () => {
   adminVerified = false;
+  stopAdminRealtime();
   showView(connectedView);
 });
 $("sign-out").addEventListener("click", async () => {
+  stopAdminRealtime();
   const { error } = await supabase.auth.signOut();
   if (error) {
     showStatus("connection-status", error.message, "error");
@@ -21078,84 +21135,122 @@ function makeElement(tag, className, text) {
 }
 async function refreshAdminDashboard() {
   if (!adminVerified || !currentUser) return;
-  showStatus("admin-status", "Loading...");
-  const [
-    { data: devices, error: devicesError },
-    { data: tabs, error: tabsError }
-  ] = await Promise.all([
-    supabase.from("devices").select("id, device_name, created_at, last_seen_at, revoked_at").eq("user_id", currentUser.id).order("created_at", { ascending: true }),
-    supabase.from("tabs").select("id, device_id, browser_tab_id, url, title, updated_at").eq("user_id", currentUser.id).order("updated_at", { ascending: false })
-  ]);
-  if (devicesError || tabsError) {
-    showStatus(
-      "admin-status",
-      devicesError?.message || tabsError?.message,
-      "error"
-    );
+  if (dashboardLoading) {
+    refreshPending = true;
     return;
   }
-  const deviceMap = new Map((devices || []).map((device) => [device.id, device]));
-  const devicesList = $("devices-list");
-  const tabsList = $("tabs-list");
-  devicesList.replaceChildren();
-  tabsList.replaceChildren();
-  if (!devices?.length) {
-    devicesList.append(makeElement("p", "muted", "No connected devices yet."));
-  }
-  for (const device of devices || []) {
-    const card = makeElement("div", "device");
-    card.append(makeElement("strong", "", device.device_name || "Chrome device"));
-    card.append(makeElement(
-      "small",
-      "",
-      device.revoked_at ? "Revoked" : `Last seen: ${device.last_seen_at || "Not available"}`
-    ));
-    if (!device.revoked_at) {
-      const revoke = makeElement("button", "danger", "Disconnect device");
-      revoke.addEventListener("click", async () => {
-        const { error } = await supabase.from("devices").update({ revoked_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("id", device.id);
-        if (error) showStatus("admin-status", error.message, "error");
-        else await refreshAdminDashboard();
-      });
-      card.append(revoke);
+  dashboardLoading = true;
+  showStatus("admin-status", "Updating...");
+  try {
+    const [
+      { data: devices, error: devicesError },
+      { data: tabs, error: tabsError }
+    ] = await Promise.all([
+      supabase.from("devices").select("id, device_name, created_at, last_seen_at, revoked_at").eq("user_id", currentUser.id).order("created_at", { ascending: true }),
+      supabase.from("tabs").select("id, device_id, browser_tab_id, url, title, updated_at").eq("user_id", currentUser.id).order("updated_at", { ascending: false })
+    ]);
+    if (devicesError || tabsError) {
+      throw devicesError || tabsError;
     }
-    devicesList.append(card);
-  }
-  if (!tabs?.length) {
-    tabsList.append(makeElement("p", "muted", "No synced tabs found."));
-  }
-  for (const tab of tabs || []) {
-    const device = deviceMap.get(tab.device_id);
-    const card = makeElement("div", "tab");
-    card.append(makeElement("strong", "", tab.title || tab.url));
-    card.append(makeElement(
-      "small",
-      "",
-      `${device?.device_name || "Unknown device"} \xB7 ${tab.url}`
-    ));
-    const actions = makeElement("div", "tab-actions");
-    for (const action of ["close", "block"]) {
-      const button = makeElement(
-        "button",
-        action === "block" ? "danger" : "secondary",
-        action === "close" ? "Close tab" : "Block tab"
+    const deviceMap = new Map(
+      (devices || []).map((device) => [device.id, device])
+    );
+    const devicesList = $("devices-list");
+    const tabsList = $("tabs-list");
+    devicesList.replaceChildren();
+    tabsList.replaceChildren();
+    if (!devices?.length) {
+      devicesList.append(
+        makeElement("p", "muted", "No connected devices yet.")
       );
-      button.addEventListener("click", async () => {
-        const { error } = await supabase.from("commands").insert({
-          user_id: currentUser.id,
-          device_id: tab.device_id,
-          browser_tab_id: tab.browser_tab_id,
-          action
-        });
-        if (error) showStatus("admin-status", error.message, "error");
-        else showStatus("admin-status", `${action} command queued.`, "success");
-      });
-      actions.append(button);
     }
-    card.append(actions);
-    tabsList.append(card);
+    for (const device of devices || []) {
+      const card = makeElement("div", "device");
+      card.append(
+        makeElement("strong", "", device.device_name || "Chrome device")
+      );
+      card.append(
+        makeElement(
+          "small",
+          "",
+          device.revoked_at ? "Revoked" : `Last seen: ${device.last_seen_at || "Not available"}`
+        )
+      );
+      if (!device.revoked_at) {
+        const revoke = makeElement(
+          "button",
+          "danger",
+          "Disconnect device"
+        );
+        revoke.addEventListener("click", async () => {
+          const { error } = await supabase.from("devices").update({ revoked_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("id", device.id);
+          if (error) {
+            showStatus("admin-status", error.message, "error");
+          } else {
+            await refreshAdminDashboard();
+          }
+        });
+        card.append(revoke);
+      }
+      devicesList.append(card);
+    }
+    if (!tabs?.length) {
+      tabsList.append(
+        makeElement("p", "muted", "No synced tabs found.")
+      );
+    }
+    for (const tab of tabs || []) {
+      const device = deviceMap.get(tab.device_id);
+      const card = makeElement("div", "tab");
+      card.append(
+        makeElement("strong", "", tab.title || tab.url)
+      );
+      card.append(
+        makeElement(
+          "small",
+          "",
+          `${device?.device_name || "Unknown device"} \xB7 ${tab.url}`
+        )
+      );
+      const actions = makeElement("div", "tab-actions");
+      for (const action of ["close", "block"]) {
+        const button = makeElement(
+          "button",
+          action === "block" ? "danger" : "secondary",
+          action === "close" ? "Close tab" : "Block tab"
+        );
+        button.addEventListener("click", async () => {
+          const { error } = await supabase.from("commands").insert({
+            user_id: currentUser.id,
+            device_id: tab.device_id,
+            browser_tab_id: tab.browser_tab_id,
+            action
+          });
+          if (error) {
+            showStatus("admin-status", error.message, "error");
+          } else {
+            showStatus(
+              "admin-status",
+              `${action} command queued.`,
+              "success"
+            );
+          }
+        });
+        actions.append(button);
+      }
+      card.append(actions);
+      tabsList.append(card);
+    }
+    showStatus("admin-status", "Live dashboard updated.", "success");
+  } catch (error) {
+    showStatus("admin-status", error.message, "error");
+  } finally {
+    dashboardLoading = false;
+    if (refreshPending) {
+      refreshPending = false;
+      refreshAdminDashboard();
+    }
   }
-  showStatus("admin-status", "Dashboard updated.", "success");
 }
 async function initialize() {
   const { data, error } = await supabase.auth.getSession();
